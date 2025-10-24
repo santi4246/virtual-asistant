@@ -1,4 +1,3 @@
-// src/models/SocialPostTask.ts
 import { BaseTask } from "./BaseTask";
 import type { TaskPayload } from "../models/ITask";
 

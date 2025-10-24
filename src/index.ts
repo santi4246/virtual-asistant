@@ -1,32 +1,22 @@
-import * as readline from "readline";
+// src/index.ts
+import { recoverAllScheduledTasks } from "./services/Scheduler";
+import { startCli } from "./cli/cli";
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+async function main() {
+  console.log("\n-------- Bienvenido al sistema --------\n");
+  console.log("Nota: la condición 'noche' comienza a las 20:00 y 'día' es 06:00-20:00.\n");
 
-const MenuView = () => {
-  console.log("\n--- Menú ---");
-  console.log("1. Mostrar saludo");  
-  console.log("0. Salir");
-  rl.question("Seleccione una opción: ", manejarOpcion);
-};
-
-const manejarOpcion = (opcion: string) => {
-  switch (opcion) {
-    case "1":
-        console.log(`\nHola mundo!`)
-        MenuView();
-        break;    
-    case "0":
-      console.log("Saliendo...");
-      rl.close();
-      break;
-    default:
-      console.log("Opción no válida. Intente de nuevo.");
-      MenuView();
-      break;
+  try {
+    await recoverAllScheduledTasks();
+    console.log("[Scheduler] Tareas programadas recuperadas.");
+  } catch (err) {
+    console.error("[Scheduler] Error al recuperar tareas:", err);
   }
-};
-console.log(`\n-------- Bienvenido al menú del sistema de Asistente Virtual --------\n`);
-MenuView();
+
+  await startCli();
+}
+
+main().catch((err) => {
+  console.error("Error en la aplicación:", err);
+  process.exit(1);
+});

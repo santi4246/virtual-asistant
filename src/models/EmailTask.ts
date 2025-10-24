@@ -1,6 +1,6 @@
 // src/models/EmailTask.ts
 import { BaseTask } from "./BaseTask";
-import type { TaskPayload, TaskType } from "../models/ITask";
+import type { TaskPayload } from "../models/ITask";
 
 export class EmailTask extends BaseTask {
   constructor(payload: TaskPayload, priority?: number, id?: string, createdAt?: string) {

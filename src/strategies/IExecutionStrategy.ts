@@ -1,4 +1,4 @@
-import { Task } from "../models/ITask";
+import type { Task } from "../models/ITask";
 
 export interface ExecutionContext {
     now?: Date;
@@ -7,4 +7,5 @@ export interface ExecutionContext {
 
 export interface IExecutionStrategy {
     schedule(task: Task): Promise<void>;
+    cancel?(): void;
 }

@@ -1,6 +1,5 @@
-// src/models/BaseTask.ts
-import { v4 as uuidv4 } from "uuid";
-import type { Task, TaskPayload, TaskType } from "../models/ITask";
+import { randomUUID } from "crypto";
+import type { Task, TaskPayload, TaskRecord, TaskResult, TaskType } from "../models/ITask";
 import { DbConnection } from "../db/DbConnection";
 
 export abstract class BaseTask implements Task {
@@ -17,7 +16,7 @@ export abstract class BaseTask implements Task {
     id?: string,
     createdAt?: string
   ) {
-    this.id = id ?? uuidv4();
+    this.id = id ?? randomUUID();
     this.type = type;
     this.payload = payload;
     this.priority = priority;
@@ -37,16 +36,22 @@ export abstract class BaseTask implements Task {
   }
 
   // Método protegido para persistir resultados en TaskDb
-  protected async persistResult(result: any): Promise<void> {
+  // src/models/BaseTask.ts (método persistResult corregido)
+  protected async persistResult(result: TaskResult): Promise<void> {
     try {
       const db = DbConnection.getInstance();
-      await db.add({
-        id: this.id,
+
+      // Crear el registro completo con todas las propiedades necesarias
+      const record: Omit<TaskRecord, "id"> = {
         type: this.type,
         payload: this.payload,
         executedAt: new Date().toISOString(),
-        result,
-      });
+        result: result,
+      };
+
+      // Usar el método add que genera el ID automáticamente
+      await db.add(record);
+      console.log(`[BaseTask] (${this.id}) Resultado persistido exitosamente`);
     } catch (err) {
       console.error(`[BaseTask] (${this.id}) Error al persistir resultado:`, err);
     }

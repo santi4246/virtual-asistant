@@ -1,0 +1,21 @@
+{
+  "name": "atracciones-ts",
+  "version": "1.0.0",
+  "description": "Proyecto de práctica con TypeScript para Asistente Virtual",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "npx ts-node src/index.ts",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/uuid": "^11.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "uuid": "^13.0.0"
+  }
+}

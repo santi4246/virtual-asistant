@@ -1,4 +1,4 @@
-// src/cli/cli.ts
+// src/cli/cli.ts (versión corregida)
 import * as readline from "readline";
 import { DbConnection } from "../db/DbConnection";
 import { SchedulerService } from "../services/SchedulerService";
@@ -6,14 +6,27 @@ import { TaskBuilder } from "../builders/TaskBuilder";
 
 // Exportamos una referencia al menú para usarla desde otras partes
 export let showMainMenu: (() => Promise<void>) | null = null;
+let isReadlineClosed = false;
 
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
+// Escuchar cuando se cierra readline
+rl.on('close', () => {
+  isReadlineClosed = true;
+});
+
 const question = (q: string): Promise<string> =>
-  new Promise((res) => rl.question(q, (ans) => res(ans.trim())));
+  new Promise((res, rej) => {
+    // Verificar si readline está cerrado antes de hacer la pregunta
+    if (isReadlineClosed) {
+      rej(new Error('readline was closed'));
+      return;
+    }
+    rl.question(q, (ans) => res(ans.trim()));
+  });
 
 export async function startCli(): Promise<void> {
   const db = DbConnection.getInstance();
@@ -21,6 +34,11 @@ export async function startCli(): Promise<void> {
 
   // Definimos la función del menú
   const menu = async () => {
+    // Verificar si readline está cerrado antes de mostrar el menú
+    if (isReadlineClosed) {
+      return;
+    }
+
     console.log("\n--- Menú ---");
     console.log("1. Crear tarea interactiva");
     console.log("2. Listar tareas persistidas");
@@ -29,52 +47,75 @@ export async function startCli(): Promise<void> {
     console.log("5. Limpiar DB");
     console.log("0. Salir");
 
-    const opt = await question("Seleccione una opción: ");
+    try {
+      const opt = await question("Seleccione una opción: ");
 
-    switch (opt) {
-      case "1": {
-        await createTaskInteractive();
-        break;
-      }
-
-      case "2": {
-        const all = await db.getAll();
-        console.log("Tareas persistidas:", JSON.stringify(all, null, 2));
-        break;
-      }
-
-      case "3": {
-        const active = scheduler.list();
-        console.log("Tareas activas en memoria:", active);
-        break;
-      }
-
-      case "4": {
-        const id = await question("ID de la tarea a cancelar: ");
-        const ok = await scheduler.cancel(id);
-        console.log(ok ? "Cancelada OK" : "No encontrada o no pudo cancelarse");
-        break;
-      }
-
-      case "5": {
-        await db.clear();
-        console.log("DB limpiada.");
-        break;
-      }
-
-      case "0":
-        console.log("Saliendo...");
-        rl.close();
+      if (isReadlineClosed) {
         return;
+      }
 
-      default:
-        console.log("Opción no válida.");
-    }    
-    await menu();
+      switch (opt) {
+        case "1": {
+          await createTaskInteractive();
+          break;
+        }
+
+        case "2": {
+          const all = await db.getAll();
+          console.log("Tareas persistidas:", JSON.stringify(all, null, 2));
+          break;
+        }
+
+        case "3": {
+          const active = scheduler.list();
+          console.log("Tareas activas en memoria:", active);
+          break;
+        }
+
+        case "4": {
+          const id = await question("ID de la tarea a cancelar: ");
+          // Verificar nuevamente después de obtener la respuesta
+          if (isReadlineClosed) {
+            return;
+          }
+          const ok = await scheduler.cancel(id);
+          console.log(ok ? "Cancelada OK" : "No encontrada o no pudo cancelarse");
+          break;
+        }
+
+        case "5": {
+          await db.clear();
+          console.log("DB limpiada.");
+          break;
+        }
+
+        case "0":
+          console.log("Saliendo...");
+          isReadlineClosed = true;
+          rl.close();
+          return;
+
+        default:
+          console.log("Opción no válida.");
+      }
+
+      await menu();
+    } catch (error) {      
+      if (error instanceof Error && error.message === 'readline was closed') {
+        return;
+      }
+      console.error("Error en el menú:", error);
+    }
   };
 
   // Guardamos la referencia al menú
-  showMainMenu = menu;
+  showMainMenu = async () => {
+    // Verificar si readline está cerrado antes de mostrar el menú
+    if (isReadlineClosed) {
+      return;
+    }
+    await menu();
+  };
   
   // Iniciar el menú principal
   await menu();
@@ -82,13 +123,23 @@ export async function startCli(): Promise<void> {
 
 async function createTaskInteractive(): Promise<void> {
   try {
+    // Verificar si readline está cerrado
+    if (isReadlineClosed) {
+      return;
+    }
+
     console.log("\n--- Crear Tarea ---");
     
     // Seleccionar tipo de tarea
     const type = await question("Tipo de tarea (email/calendar/social): ");
+    // Verificar nuevamente después de obtener la respuesta
+    if (isReadlineClosed) {
+      return;
+    }
+    
     if (!["email", "calendar", "social"].includes(type)) {
       console.log("Tipo no válido. Use: email, calendar, o social");
-      if (showMainMenu) await showMainMenu();
+      if (showMainMenu && !isReadlineClosed) await showMainMenu();
       return;
     }
 
@@ -116,12 +167,22 @@ async function createTaskInteractive(): Promise<void> {
         };
         break;
     }
+    
+    // Verificar nuevamente después de obtener las respuestas
+    if (isReadlineClosed) {
+      return;
+    }
 
     // Seleccionar estrategia
     const strategyType = await question("Estrategia (immediate/scheduled/conditional): ");
+    // Verificar nuevamente después de obtener la respuesta
+    if (isReadlineClosed) {
+      return;
+    }
+    
     if (!["immediate", "scheduled", "conditional"].includes(strategyType)) {
       console.log("Estrategia no válida. Use: immediate, scheduled, o conditional");
-      if (showMainMenu) await showMainMenu();
+      if (showMainMenu && !isReadlineClosed) await showMainMenu();
       return;
     }
 
@@ -134,10 +195,15 @@ async function createTaskInteractive(): Promise<void> {
     switch (strategyType) {
       case "scheduled": {
         const dateStr = await question("Fecha programada (YYYY-MM-DD HH:MM): ");
+        // Verificar nuevamente después de obtener la respuesta
+        if (isReadlineClosed) {
+          return;
+        }
+        
         const date = new Date(dateStr);
         if (isNaN(date.getTime())) {
           console.log("Fecha inválida");
-          if (showMainMenu) await showMainMenu();
+          if (showMainMenu && !isReadlineClosed) await showMainMenu();
           return;
         }
         builder.setStrategy("scheduled").setScheduledDate(date);
@@ -146,19 +212,34 @@ async function createTaskInteractive(): Promise<void> {
       
       case "conditional": {
         const condition = await question("Condición (day/night): ");
+        // Verificar nuevamente después de obtener la respuesta
+        if (isReadlineClosed) {
+          return;
+        }
+        
         if (condition !== "day" && condition !== "night") {
           console.log("Condición no válida. Use: day o night");
-          if (showMainMenu) await showMainMenu();
+          if (showMainMenu && !isReadlineClosed) await showMainMenu();
           return;
         }
         builder.setStrategy("conditional").setCondition(condition);
         
         // Opciones adicionales para conditional
         const intervalStr = await question("Intervalo de verificación (ms) [5000]: ");
+        // Verificar nuevamente después de obtener la respuesta
+        if (isReadlineClosed) {
+          return;
+        }
+        
         const interval = parseInt(intervalStr) || 5000;
         builder.setInterval(interval);
         
         const maxAttemptsStr = await question("Máximo de intentos [10]: ");
+        // Verificar nuevamente después de obtener la respuesta
+        if (isReadlineClosed) {
+          return;
+        }
+        
         const maxAttempts = parseInt(maxAttemptsStr) || 10;
         builder.setMaxAttempts(maxAttempts);
         break;
@@ -172,6 +253,11 @@ async function createTaskInteractive(): Promise<void> {
 
     // Configurar prioridad
     const priorityStr = await question("Prioridad [0]: ");
+    // Verificar nuevamente después de obtener la respuesta
+    if (isReadlineClosed) {
+      return;
+    }
+    
     const priority = parseInt(priorityStr) || 0;
     builder.setPriority(priority);
 
@@ -187,11 +273,15 @@ async function createTaskInteractive(): Promise<void> {
       console.log(`✅ Tarea ${task.id} ejecutada inmediatamente`);
     }
   } catch (error) {
+    // Si es un error de readline cerrado, simplemente retornamos silenciosamente
+    if (error instanceof Error && error.message === 'readline was closed') {
+      return;
+    }
     console.error("❌ Error creando tarea:", error);
   }
   
-  // Volver al menú principal
-  if (showMainMenu) {
+  // Volver al menú principal solo si readline no está cerrado
+  if (showMainMenu && !isReadlineClosed) {
     await showMainMenu();
   }
 }

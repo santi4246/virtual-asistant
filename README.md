@@ -118,7 +118,7 @@ Después, usa 3 para ver la tarea en memoria; cuando se ejecute, dejará de apar
 ## Licencia
 Este proyecto es para uso personal y educativo. No se permite su venta ni uso comercial sin autorización expresa.
 ---
-¡Gracias por usar este proyecto para crear audios con voz natural y controlada!
+¡Gracias por usar este proyecto para crear tareas con asistente virtual!
 # 👤 Autor
 ```
 Santiago Romero / https://www.santiago-romero.online / https://www.linkedin.com/in/santiago-romero-santi4246/

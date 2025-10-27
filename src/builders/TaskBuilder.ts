@@ -58,9 +58,38 @@ export class TaskBuilder {
     return this;
   }
 
+  // src/builders/TaskBuilder.ts (método build con validación)
   async build(): Promise<{ task: Task; strategy: IExecutionStrategy | null }> {
     if (!this.type) {
       throw new Error("Tipo de tarea es requerido");
+    }
+
+    // Validaciones específicas por tipo de tarea
+    if (this.type === "social" && this.payload) {
+      if (!this.payload.content || this.payload.content.trim().length === 0) {
+        throw new Error("El contenido del post no puede estar vacío");
+      }
+      if (!this.payload.platform) {
+        throw new Error("La plataforma es requerida para publicar en redes sociales");
+      }
+    }
+
+    if (this.type === "email" && this.payload) {
+      if (!this.payload.recipient) {
+        throw new Error("El destinatario es requerido para enviar emails");
+      }
+      if (!this.payload.subject) {
+        throw new Error("El asunto es requerido para enviar emails");
+      }
+    }
+
+    if (this.type === "calendar" && this.payload) {
+      if (!this.payload.title) {
+        throw new Error("El título es requerido para crear recordatorios");
+      }
+      if (!this.payload.date) {
+        throw new Error("La fecha es requerida para crear recordatorios");
+      }
     }
 
     // Crear la tarea usando TaskFactory
@@ -75,14 +104,14 @@ export class TaskBuilder {
       case "immediate":
         strategy = new ImmediateStrategy();
         break;
-      
+
       case "scheduled":
         if (!this.scheduledDate) {
           throw new Error("Fecha programada es requerida para estrategia scheduled");
         }
         strategy = new ScheduledStrategy(this.scheduledDate);
         break;
-      
+
       case "conditional":
         if (!this.condition) {
           throw new Error("Condición es requerida para estrategia conditional");
@@ -93,17 +122,18 @@ export class TaskBuilder {
           maxAttempts: this.maxAttempts,
         });
         break;
-      
-      default:        
+
+      default:
+        // Sin estrategia - ejecución inmediata
         strategy = null;
     }
 
     return { task, strategy };
   }
-    
+
   async buildAndExecute(): Promise<void> {
     const { task, strategy } = await this.build();
-    
+
     if (strategy) {
       await strategy.schedule(task);
     } else {

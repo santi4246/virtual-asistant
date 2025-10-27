@@ -7,40 +7,30 @@ export class SocialPostTask extends BaseTask {
   }
 
   async execute(): Promise<void> {
-    const platform = (this.payload.platform as string) ?? "generic";
-    const message = (this.payload.message as string) ?? "";
-
-    console.log(`[SocialPostTask] (${this.id}) Preparando post en "${platform}"`);
-
-    if (!message) {
-      const errMsg = `[SocialPostTask] (${this.id}) Mensaje vacío. No se puede publicar.`;
-      console.error(errMsg);
-
+    // Validar que el contenido no esté vacío
+    if (!this.payload.content || this.payload.content.trim().length === 0) {
       const errorResult = {
         status: "error",
-        info: errMsg,
-        timestamp: new Date().toISOString(),
+        error: "Mensaje vacío. No se puede publicar.",
+        timestamp: new Date().toISOString()
       };
 
       await this.persistResult(errorResult);
-      return;
+      throw new Error("Mensaje vacío. No se puede publicar.");
     }
 
-    console.log(`[SocialPostTask] (${this.id}) Mensaje: ${message}`);
-
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const publishedAt = new Date().toISOString();
-
+    // Simular publicación en red social
     const result = {
       status: "simulated",
-      info: `Post simulado publicado en ${platform}`,
-      platform,
-      publishedAt,
-      timestamp: new Date().toISOString(),
+      info: `Post simulado en ${this.payload.platform}: "${this.payload.content}"`,
+      publishedAt: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     };
 
-    console.log(`[SocialPostTask] (${this.id}) Publicación simulada completada`, result);
+    console.log(`[SocialPostTask] (${this.id}) Publicando en ${this.payload.platform}`);
+    console.log(`[SocialPostTask] (${this.id}) Contenido: ${this.payload.content}`);
+    console.log(`[SocialPostTask] (${this.id}) Post simulado publicado:`, result);
+
     await this.persistResult(result);
   }
 }

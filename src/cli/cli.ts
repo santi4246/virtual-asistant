@@ -100,7 +100,7 @@ export async function startCli(): Promise<void> {
       }
 
       await menu();
-    } catch (error) {      
+    } catch (error) {
       if (error instanceof Error && error.message === 'readline was closed') {
         return;
       }
@@ -116,7 +116,7 @@ export async function startCli(): Promise<void> {
     }
     await menu();
   };
-  
+
   // Iniciar el menú principal
   await menu();
 }
@@ -129,14 +129,14 @@ async function createTaskInteractive(): Promise<void> {
     }
 
     console.log("\n--- Crear Tarea ---");
-    
+
     // Seleccionar tipo de tarea
     const type = await question("Tipo de tarea (email/calendar/social): ");
     // Verificar nuevamente después de obtener la respuesta
     if (isReadlineClosed) {
       return;
     }
-    
+
     if (!["email", "calendar", "social"].includes(type)) {
       console.log("Tipo no válido. Use: email, calendar, o social");
       if (showMainMenu && !isReadlineClosed) await showMainMenu();
@@ -161,13 +161,23 @@ async function createTaskInteractive(): Promise<void> {
         };
         break;
       case "social":
+        const platform = await question("Plataforma (twitter/facebook/linkedin): ");
+        const content = await question("Contenido del post: ");
+
+        // Validar que el contenido no esté vacío
+        if (!content || content.trim().length === 0) {
+          console.log("❌ Error: El contenido del post no puede estar vacío");
+          if (showMainMenu && !isReadlineClosed) await showMainMenu();
+          return;
+        }
+
         payload = {
-          platform: await question("Plataforma (twitter/facebook/linkedin): "),
-          content: await question("Contenido del post: ")
+          platform: platform,
+          content: content
         };
         break;
     }
-    
+
     // Verificar nuevamente después de obtener las respuestas
     if (isReadlineClosed) {
       return;
@@ -179,7 +189,7 @@ async function createTaskInteractive(): Promise<void> {
     if (isReadlineClosed) {
       return;
     }
-    
+
     if (!["immediate", "scheduled", "conditional"].includes(strategyType)) {
       console.log("Estrategia no válida. Use: immediate, scheduled, o conditional");
       if (showMainMenu && !isReadlineClosed) await showMainMenu();
@@ -199,7 +209,7 @@ async function createTaskInteractive(): Promise<void> {
         if (isReadlineClosed) {
           return;
         }
-        
+
         const date = new Date(dateStr);
         if (isNaN(date.getTime())) {
           console.log("Fecha inválida");
@@ -209,42 +219,42 @@ async function createTaskInteractive(): Promise<void> {
         builder.setStrategy("scheduled").setScheduledDate(date);
         break;
       }
-      
+
       case "conditional": {
         const condition = await question("Condición (day/night): ");
         // Verificar nuevamente después de obtener la respuesta
         if (isReadlineClosed) {
           return;
         }
-        
+
         if (condition !== "day" && condition !== "night") {
           console.log("Condición no válida. Use: day o night");
           if (showMainMenu && !isReadlineClosed) await showMainMenu();
           return;
         }
         builder.setStrategy("conditional").setCondition(condition);
-        
+
         // Opciones adicionales para conditional
         const intervalStr = await question("Intervalo de verificación (ms) [5000]: ");
         // Verificar nuevamente después de obtener la respuesta
         if (isReadlineClosed) {
           return;
         }
-        
+
         const interval = parseInt(intervalStr) || 5000;
         builder.setInterval(interval);
-        
+
         const maxAttemptsStr = await question("Máximo de intentos [10]: ");
         // Verificar nuevamente después de obtener la respuesta
         if (isReadlineClosed) {
           return;
         }
-        
+
         const maxAttempts = parseInt(maxAttemptsStr) || 10;
         builder.setMaxAttempts(maxAttempts);
         break;
       }
-      
+
       case "immediate":
       default:
         builder.setStrategy("immediate");
@@ -257,13 +267,13 @@ async function createTaskInteractive(): Promise<void> {
     if (isReadlineClosed) {
       return;
     }
-    
+
     const priority = parseInt(priorityStr) || 0;
     builder.setPriority(priority);
 
     // Construir y ejecutar
     const { task, strategy } = await builder.build();
-    
+
     if (strategy) {
       await strategy.schedule(task);
       console.log(`✅ Tarea ${task.id} programada con éxito`);
@@ -274,14 +284,12 @@ async function createTaskInteractive(): Promise<void> {
     }
   } catch (error) {
     // Si es un error de readline cerrado, simplemente retornamos silenciosamente
-    if (error instanceof Error && error.message === 'readline was closed') {
-      return;
+    console.error(`❌ Error creando tarea: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+
+    // Volver al menú principal solo si readline no está cerrado
+    if (showMainMenu && !isReadlineClosed) {
+      await showMainMenu();
     }
-    console.error("❌ Error creando tarea:", error);
-  }
-  
-  // Volver al menú principal solo si readline no está cerrado
-  if (showMainMenu && !isReadlineClosed) {
-    await showMainMenu();
+    return;
   }
 }

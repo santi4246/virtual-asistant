@@ -1,8 +1,9 @@
 # Proyecto: Asistente Virtual (CLI) — Sistema de Tareas Programables
 ### Descripción
-Este proyecto es una aplicación de consola (CLI) en TypeScript que simula un asistente virtual capaz de crear y ejecutar tareas automáticas (enviar emails simulados, crear recordatorios de calendario simulados y publicar en redes sociales de forma simulada). Soporta múltiples estrategias de ejecución: inmediata, programada y condicional. Los resultados se persisten en un archivo JSON local.
----
 
+Este proyecto es una aplicación de consola (CLI) en TypeScript que simula un asistente virtual capaz de crear y ejecutar tareas automáticas (enviar emails simulados, crear recordatorios de calendario simulados y publicar en redes sociales de forma simulada). Soporta múltiples estrategias de ejecución: inmediata, programada y condicional. Los resultados se persisten en un archivo JSON local. 
+
+---
 ### Tecnologías usadas
 - Node.js (v14+ recomendable)
 - TypeScript

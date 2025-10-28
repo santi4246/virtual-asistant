@@ -1,5 +1,6 @@
 // src/cli/Scheduler.ts
 import { DbConnection } from "../db/DbConnection";
+import { safeLog } from "../cli/logger";
 
 /**
  * Reprograma todas las tareas con result.status === "scheduled"
@@ -20,7 +21,7 @@ export async function recoverScheduledTasks(): Promise<void> {
     try {
       const scheduledFor = record.result?.scheduledFor;
       if (!scheduledFor || isNaN(new Date(scheduledFor).getTime())) {
-        console.warn(`[Scheduler] Fecha inválida para tarea ${record.id}. Ignorando.`);
+        safeLog(`[Scheduler] Fecha inválida para tarea ${record.id}. Ignorando.`);
         continue;
       }
 
@@ -30,10 +31,10 @@ export async function recoverScheduledTasks(): Promise<void> {
       });
       const strategy = new ScheduledStrategy(targetDate);
 
-      console.log(`[Scheduler] Reprogramando (scheduled) tarea ${record.id} para ${targetDate.toISOString()}`);
+      safeLog(`[Scheduler] Reprogramando (scheduled) tarea ${record.id} para ${targetDate.toISOString()}`);
       await strategy.schedule(task);
     } catch (err) {
-      console.error(`[Scheduler] Error al reprogramar tarea scheduled ${record.id}:`, err);
+      safeLog(`[Scheduler] Error al reprogramar tarea scheduled ${record.id}:`, err);
     }
   }
 }
@@ -62,7 +63,7 @@ export async function recoverConditionalTasks(): Promise<void> {
       if (storedCondition === "day" || storedCondition === "night") {
         conditionSpec = storedCondition;
       } else {
-        console.warn(
+        safeLog(
           `[Scheduler] Condición personalizada no serializable para tarea ${record.id}. Usando "day" por defecto.`
         );
         conditionSpec = "day";
@@ -74,7 +75,7 @@ export async function recoverConditionalTasks(): Promise<void> {
         condition = conditionSpec;
       } else {
         // Si no hay condición válida, usamos "day" por defecto
-        console.warn(
+        safeLog(
           `[Scheduler] Condición inválida para tarea ${record.id}. Usando "day" por defecto.`
         );
       }
@@ -89,10 +90,10 @@ export async function recoverConditionalTasks(): Promise<void> {
         priority: record.payload?.priority,
       });
 
-      console.log(`[Scheduler] Reprogramando (waiting) tarea ${record.id} con condición=${conditionSpec}`);
+      safeLog(`[Scheduler] Reprogramando (waiting) tarea ${record.id} con condición=${conditionSpec}`);
       await strategy.schedule(task);
     } catch (err) {
-      console.error(`[Scheduler] Error al reprogramar tarea waiting ${record.id}:`, err);
+      safeLog(`[Scheduler] Error al reprogramar tarea waiting ${record.id}:`, err);
     }
   }
 }

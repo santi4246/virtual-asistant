@@ -1,6 +1,6 @@
-// src/models/EmailTask.ts
 import { BaseTask } from "./BaseTask";
 import type { TaskPayload } from "../models/ITask";
+import { safeLog } from "../cli/logger";
 
 export class EmailTask extends BaseTask {
   constructor(payload: TaskPayload, priority?: number, id?: string, createdAt?: string) {
@@ -9,12 +9,12 @@ export class EmailTask extends BaseTask {
 
   async execute(): Promise<void> {
     const recipient = this.payload.recipient ?? "<sin destinatario>";
-    const subject = this.payload.title ?? "<sin asunto>";
+    const subject = this.payload.subject ?? "<sin asunto>";
     const message = this.payload.message ?? "<sin mensaje>";
 
-    console.log(`[EmailTask] (${this.id}) Iniciando envío a ${recipient}`);
-    console.log(`[EmailTask] Subject: ${subject}`);
-    console.log(`[EmailTask] Message: ${message}`);
+    safeLog(`[EmailTask] (${this.id}) Iniciando envío a ${recipient}`);
+    safeLog(`[EmailTask] Subject: ${subject}`);
+    safeLog(`[EmailTask] Message: ${message}`);
 
     await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -24,7 +24,7 @@ export class EmailTask extends BaseTask {
       timestamp: new Date().toISOString(),
     };
 
-    console.log(`[EmailTask] (${this.id}) Envío simulado completo`, result);
+    safeLog(`[EmailTask] (${this.id}) Envío simulado completo`, result);
     await this.persistResult(result);
   }
 }

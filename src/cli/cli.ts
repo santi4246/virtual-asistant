@@ -1,295 +1,160 @@
-// src/cli/cli.ts (versión corregida)
+// src/cli/cli.ts
 import * as readline from "readline";
+import { initLogger } from "./logger";
 import { DbConnection } from "../db/DbConnection";
 import { SchedulerService } from "../services/SchedulerService";
-import { TaskBuilder } from "../builders/TaskBuilder";
+import { createTaskInteractive, createCleanTaskInteractive } from "./taskActions";
 
-// Exportamos una referencia al menú para usarla desde otras partes
 export let showMainMenu: (() => Promise<void>) | null = null;
-let isReadlineClosed = false;
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+initLogger(rl);
+
+let isClosed = false;
+let isAsking = false; // true cuando questionFn está esperando respuesta
+
+rl.on("close", () => {
+  isClosed = true;
 });
 
-// Escuchar cuando se cierra readline
-rl.on('close', () => {
-  isReadlineClosed = true;
-});
-
-const question = (q: string): Promise<string> =>
-  new Promise((res, rej) => {
-    // Verificar si readline está cerrado antes de hacer la pregunta
-    if (isReadlineClosed) {
-      rej(new Error('readline was closed'));
+/**
+ * Función question que se pasa a los helpers.
+ * Marca isAsking para que safeLog sepa si debe reimprimir prompt o no.
+ */
+export const questionFn = (q: string): Promise<string> =>
+  new Promise((resolve, reject) => {
+    if (isClosed) {
+      reject(new Error("readline was closed"));
       return;
     }
-    rl.question(q, (ans) => res(ans.trim()));
+    isAsking = true;
+    rl.question(q, (ans) => {
+      isAsking = false;
+      resolve(ans.trim());
+    });
   });
 
+/**
+ * safeLog: imprime de forma "segura" cuando tenemos un prompt activo.
+ * Limpia la línea actual, imprime y vuelve a llamar rl.prompt() si no hay una pregunta en curso.
+ */
+export function safeLog(...args: any[]) {
+  // Si cerraron el readline, hace un console.log normal
+  if (isClosed) {
+    console.log(...args);
+    return;
+  }
+
+  try {
+    readline.clearLine(process.stdout, 0);
+    readline.cursorTo(process.stdout, 0);
+  } catch {
+    // ignore, seguir con console.log
+  }
+
+  console.log(...args);
+
+  // Si no hay una question() en curso, reimprimimos prompt
+  if (!isAsking) {
+    // reimprimimos el prompt asíncronamente para no interferir
+    setImmediate(() => {
+      if (!isClosed) rl.prompt();
+    });
+  }
+}
+
+/**
+ * Renderiza el menú y pone el prompt.
+ */
+function renderMenu() {
+  if (isClosed) return;
+
+  console.log("\n--- Menú ---");
+  console.log("1. Crear tarea interactiva");
+  console.log("2. Listar tareas persistidas");
+  console.log("3. Listar tareas activas en memoria");
+  console.log("4. Cancelar tarea por id");
+  console.log("5. Limpiar DB");
+  console.log("0. Salir");
+  
+  rl.setPrompt("Seleccione una opción: ");
+  rl.prompt();
+}
+
+// Exponer showMainMenu para que los módulos externos (taskActions) lo invoquen
+showMainMenu = async () => {
+  renderMenu();
+};
+
+/**
+ * Start CLI: usa rl.on('line') para procesar opciones.
+ */
 export async function startCli(): Promise<void> {
   const db = DbConnection.getInstance();
   const scheduler = SchedulerService.getInstance();
 
-  // Definimos la función del menú
-  const menu = async () => {
-    // Verificar si readline está cerrado antes de mostrar el menú
-    if (isReadlineClosed) {
-      return;
-    }
-
-    console.log("\n--- Menú ---");
-    console.log("1. Crear tarea interactiva");
-    console.log("2. Listar tareas persistidas");
-    console.log("3. Listar tareas activas en memoria");
-    console.log("4. Cancelar tarea por id");
-    console.log("5. Limpiar DB");
-    console.log("0. Salir");
+  // Handler de línea
+  rl.on("line", async (input) => {
+    const opt = input.trim();
 
     try {
-      const opt = await question("Seleccione una opción: ");
-
-      if (isReadlineClosed) {
-        return;
-      }
-
       switch (opt) {
         case "1": {
-          await createTaskInteractive();
+          // Crear tarea interactiva (pasa questionFn, comprobador de estado y showMainMenu)
+          await createTaskInteractive(questionFn, () => isClosed, showMainMenu);
           break;
         }
 
         case "2": {
           const all = await db.getAll();
-          console.log("Tareas persistidas:", JSON.stringify(all, null, 2));
+          safeLog("Tareas persistidas:", JSON.stringify(all, null, 2));
           break;
         }
 
         case "3": {
           const active = scheduler.list();
-          console.log("Tareas activas en memoria:", active);
+          safeLog("Tareas activas en memoria:", active);
           break;
         }
 
-        case "4": {
-          const id = await question("ID de la tarea a cancelar: ");
-          // Verificar nuevamente después de obtener la respuesta
-          if (isReadlineClosed) {
-            return;
+        case "4": {          
+          try {
+            const id = await questionFn("ID de la tarea a cancelar: ");
+            if (isClosed) break;
+            const ok = await scheduler.cancel(id);
+            safeLog(ok ? "Cancelada OK" : "No encontrada o no pudo cancelarse");
+          } catch (err) {
+            safeLog("Error leyendo ID:", err);
           }
-          const ok = await scheduler.cancel(id);
-          console.log(ok ? "Cancelada OK" : "No encontrada o no pudo cancelarse");
           break;
         }
 
-        case "5": {
-          await db.clear();
-          console.log("DB limpiada.");
+        case "5": {          
+          await createCleanTaskInteractive(questionFn, () => isClosed, showMainMenu);
           break;
         }
 
-        case "0":
-          console.log("Saliendo...");
-          isReadlineClosed = true;
+        case "0": {
+          safeLog("Saliendo...");
+          isClosed = true;
           rl.close();
           return;
+        }
 
         default:
-          console.log("Opción no válida.");
+          safeLog("Opción no válida.");
       }
-
-      await menu();
-    } catch (error) {
-      if (error instanceof Error && error.message === 'readline was closed') {
-        return;
+    } catch (err) {
+      safeLog("Error procesando opción:", err instanceof Error ? err.message : err);
+    } finally {
+      // Si sigue abierto, reimprimir el menú (renderMenu llama rl.prompt())
+      if (!isClosed) {
+        // renderMenu();
       }
-      console.error("Error en el menú:", error);
     }
-  };
+  });
 
-  // Guardamos la referencia al menú
-  showMainMenu = async () => {
-    // Verificar si readline está cerrado antes de mostrar el menú
-    if (isReadlineClosed) {
-      return;
-    }
-    await menu();
-  };
-
-  // Iniciar el menú principal
-  await menu();
-}
-
-async function createTaskInteractive(): Promise<void> {
-  try {
-    // Verificar si readline está cerrado
-    if (isReadlineClosed) {
-      return;
-    }
-
-    console.log("\n--- Crear Tarea ---");
-
-    // Seleccionar tipo de tarea
-    const type = await question("Tipo de tarea (email/calendar/social): ");
-    // Verificar nuevamente después de obtener la respuesta
-    if (isReadlineClosed) {
-      return;
-    }
-
-    if (!["email", "calendar", "social"].includes(type)) {
-      console.log("Tipo no válido. Use: email, calendar, o social");
-      if (showMainMenu && !isReadlineClosed) await showMainMenu();
-      return;
-    }
-
-    // Configurar payload según el tipo
-    let payload: any = {};
-    switch (type) {
-      case "email":
-        payload = {
-          recipient: await question("Destinatario: "),
-          subject: await question("Asunto: "),
-          message: await question("Mensaje: ")
-        };
-        break;
-      case "calendar":
-        payload = {
-          title: await question("Título del evento: "),
-          date: await question("Fecha (YYYY-MM-DD): "),
-          description: await question("Descripción: ")
-        };
-        break;
-      case "social":
-        const platform = await question("Plataforma (twitter/facebook/linkedin): ");
-        const content = await question("Contenido del post: ");
-
-        // Validar que el contenido no esté vacío
-        if (!content || content.trim().length === 0) {
-          console.log("❌ Error: El contenido del post no puede estar vacío");
-          if (showMainMenu && !isReadlineClosed) await showMainMenu();
-          return;
-        }
-
-        payload = {
-          platform: platform,
-          content: content
-        };
-        break;
-    }
-
-    // Verificar nuevamente después de obtener las respuestas
-    if (isReadlineClosed) {
-      return;
-    }
-
-    // Seleccionar estrategia
-    const strategyType = await question("Estrategia (immediate/scheduled/conditional): ");
-    // Verificar nuevamente después de obtener la respuesta
-    if (isReadlineClosed) {
-      return;
-    }
-
-    if (!["immediate", "scheduled", "conditional"].includes(strategyType)) {
-      console.log("Estrategia no válida. Use: immediate, scheduled, o conditional");
-      if (showMainMenu && !isReadlineClosed) await showMainMenu();
-      return;
-    }
-
-    // Crear builder
-    const builder = new TaskBuilder()
-      .setType(type as any)
-      .setPayload(payload);
-
-    // Configurar estrategia específica
-    switch (strategyType) {
-      case "scheduled": {
-        const dateStr = await question("Fecha programada (YYYY-MM-DD HH:MM): ");
-        // Verificar nuevamente después de obtener la respuesta
-        if (isReadlineClosed) {
-          return;
-        }
-
-        const date = new Date(dateStr);
-        if (isNaN(date.getTime())) {
-          console.log("Fecha inválida");
-          if (showMainMenu && !isReadlineClosed) await showMainMenu();
-          return;
-        }
-        builder.setStrategy("scheduled").setScheduledDate(date);
-        break;
-      }
-
-      case "conditional": {
-        const condition = await question("Condición (day/night): ");
-        // Verificar nuevamente después de obtener la respuesta
-        if (isReadlineClosed) {
-          return;
-        }
-
-        if (condition !== "day" && condition !== "night") {
-          console.log("Condición no válida. Use: day o night");
-          if (showMainMenu && !isReadlineClosed) await showMainMenu();
-          return;
-        }
-        builder.setStrategy("conditional").setCondition(condition);
-
-        // Opciones adicionales para conditional
-        const intervalStr = await question("Intervalo de verificación (ms) [5000]: ");
-        // Verificar nuevamente después de obtener la respuesta
-        if (isReadlineClosed) {
-          return;
-        }
-
-        const interval = parseInt(intervalStr) || 5000;
-        builder.setInterval(interval);
-
-        const maxAttemptsStr = await question("Máximo de intentos [10]: ");
-        // Verificar nuevamente después de obtener la respuesta
-        if (isReadlineClosed) {
-          return;
-        }
-
-        const maxAttempts = parseInt(maxAttemptsStr) || 10;
-        builder.setMaxAttempts(maxAttempts);
-        break;
-      }
-
-      case "immediate":
-      default:
-        builder.setStrategy("immediate");
-        break;
-    }
-
-    // Configurar prioridad
-    const priorityStr = await question("Prioridad [0]: ");
-    // Verificar nuevamente después de obtener la respuesta
-    if (isReadlineClosed) {
-      return;
-    }
-
-    const priority = parseInt(priorityStr) || 0;
-    builder.setPriority(priority);
-
-    // Construir y ejecutar
-    const { task, strategy } = await builder.build();
-
-    if (strategy) {
-      await strategy.schedule(task);
-      console.log(`✅ Tarea ${task.id} programada con éxito`);
-      console.log(`[Sistema] Puedes continuar usando el menú principal mientras se ejecutan tareas en segundo plano.`);
-    } else {
-      await task.execute();
-      console.log(`✅ Tarea ${task.id} ejecutada inmediatamente`);
-    }
-  } catch (error) {
-    // Si es un error de readline cerrado, simplemente retornamos silenciosamente
-    console.error(`❌ Error creando tarea: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-
-    // Volver al menú principal solo si readline no está cerrado
-    if (showMainMenu && !isReadlineClosed) {
-      await showMainMenu();
-    }
-    return;
-  }
+  // Mostrar menú inicial
+  renderMenu();
 }

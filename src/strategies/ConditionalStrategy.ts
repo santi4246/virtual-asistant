@@ -2,6 +2,7 @@
 import type { Task } from "../models/ITask";
 import type { IExecutionStrategy } from "./IExecutionStrategy";
 import { SchedulerService } from "../services/SchedulerService";
+import { safeLog } from "../cli/logger";
 import { showMainMenu } from "../cli/cli";
 
 type ConditionalStrategyOptions = {
@@ -21,88 +22,94 @@ export class ConditionalStrategy implements IExecutionStrategy {
   }
 
   async schedule(task: Task): Promise<void> {
-    console.log(`[ConditionalStrategy] Iniciando monitoreo para tarea ${task.id}`);
+    safeLog(`[ConditionalStrategy] Iniciando monitoreo para tarea ${task.id}`);
 
-    // Guardar taskId para uso posterior
+    // Guardar taskId para uso posterior (cancelación)
     this.taskId = task.id;
 
-    const intervalMs = this.options.intervalMs ?? 5000; // 5 segundos por defecto
+    const intervalMs = this.options.intervalMs ?? 5000; // 5s por defecto
     const maxAttempts = this.options.maxAttempts ?? Infinity;
 
-    const checkCondition = () => {
-      try {
-        let conditionMet = false;
+    const scheduler = SchedulerService.getInstance();
+    // Registrar en scheduler para permitir cancelación desde el CLI
+    scheduler.register(task.id, task, this);
 
+    const evaluateCondition = (): boolean => {
+      try {
         if (this.options.condition === "day") {
           const hour = new Date().getHours();
-          conditionMet = hour >= 6 && hour < 20;
+          return hour >= 6 && hour < 20;
         } else if (this.options.condition === "night") {
           const hour = new Date().getHours();
-          conditionMet = hour >= 20 || hour < 6;
+          return hour >= 20 || hour < 6;
         } else if (typeof this.options.condition === "function") {
-          conditionMet = this.options.condition();
+          return this.options.condition();
         }
-
-        if (conditionMet) {
-          console.log(`[ConditionalStrategy] Condición cumplida para tarea ${task.id}`);
-          this.executeTask(task);
-          return true;
-        }
-
         return false;
       } catch (err) {
-        console.error(`[ConditionalStrategy] Error evaluando condición para ${task.id}:`, err);
+        safeLog(`[ConditionalStrategy] Error evaluando condición para ${task.id}:`, err);
         return false;
       }
     };
 
-    // Verificar inmediatamente
-    if (checkCondition()) {
+    // Verificación inmediata
+    if (evaluateCondition()) {
+      safeLog(`[ConditionalStrategy] Condición cumplida (inmediato) para tarea ${task.id}`);
+      await this.executeTask(task);
+      // ejecutarTask se encargará de desregistrar
       return;
     }
 
     // Configurar intervalo de verificación
-    this.intervalId = setInterval(() => {
-      this.attempts++;
+    this.intervalId = setInterval(async () => {
+      try {
+        this.attempts += 1;
 
-      if (this.attempts > maxAttempts) {
-        console.log(`[ConditionalStrategy] Máximo de intentos alcanzado para tarea ${this.taskId}`);
-        this.cancel();
-        return;
-      }
+        if (this.attempts > maxAttempts) {
+          safeLog(`[ConditionalStrategy] Máximo de intentos alcanzado para tarea ${this.taskId}`);
+          this.cancel();
+          return;
+        }
 
-      if (checkCondition()) {
-        this.cancel();
+        if (evaluateCondition()) {
+          safeLog(`[ConditionalStrategy] Condición cumplida para tarea ${task.id}`);
+          // parar el intervalo antes de ejecutar para evitar reentradas
+          if (this.intervalId) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+          }
+          await this.executeTask(task);
+        }
+      } catch (err) {
+        safeLog(`[ConditionalStrategy] Error en el interval check para ${task.id}:`, err);
       }
     }, intervalMs);
 
-    if (this.intervalId) {
-      this.intervalId.unref();
+    // Permitir que el proceso termine si no hay otras referencias
+    if (this.intervalId && typeof (this.intervalId as any).unref === "function") {
+      (this.intervalId as any).unref();
     }
-
-    // Registrar en SchedulerService
-    const scheduler = SchedulerService.getInstance();
-    scheduler.register(task.id, task, this);
   }
 
   private async executeTask(task: Task): Promise<void> {
     try {
       await task.execute();
-      console.log(`[ConditionalStrategy] Tarea ${task.id} ejecutada.`);
-      console.log(`[Sistema] Volviendo al menú principal...`);
+      safeLog(`[ConditionalStrategy] Tarea ${task.id} ejecutada.`);
     } catch (err) {
-      console.error(`[ConditionalStrategy] Error ejecutando tarea ${task.id}:`, err);
+      safeLog(`[ConditionalStrategy] Error ejecutando tarea ${task.id}:`, err);
     } finally {
-      // Mostrar menú después de ejecutar la tarea
-      this.showMenuIfAvailable();
-    }
-  }
-
-  private showMenuIfAvailable() {
-    if (showMainMenu) {
-      setTimeout(() => {
-        showMainMenu!().catch(console.error);
-      }, 100);
+      // Remover del registro al finalizar
+      const scheduler = SchedulerService.getInstance();
+      scheduler.unregister(task.id);
+      if (showMainMenu) {
+        showMainMenu().catch(console.error);
+      }
+      try {
+        const scheduler = SchedulerService.getInstance();
+        scheduler.unregister(task.id);
+      } catch (err) {
+        safeLog(`[ConditionalStrategy] Error al desregistrar tarea ${task.id}:`, err);
+      }
     }
   }
 
@@ -110,11 +117,13 @@ export class ConditionalStrategy implements IExecutionStrategy {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log(`[ConditionalStrategy] Monitoreo cancelado para tarea ${this.taskId}`);
-
-      // Registrar cancelación en SchedulerService
+    }
+    safeLog(`[ConditionalStrategy] Monitoreo cancelado para tarea ${this.taskId}`);    
+    try {
       const scheduler = SchedulerService.getInstance();
       scheduler.unregister(this.taskId);
+    } catch (err) {
+      safeLog(`[ConditionalStrategy] Error al desregistrar tarea ${this.taskId}:`, err);
     }
   }
 }

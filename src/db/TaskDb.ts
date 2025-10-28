@@ -2,7 +2,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import { randomUUID } from "crypto";
-import type { TaskRecord, TaskType } from "../models/ITask";
+import type { TaskRecord } from "../models/ITask";
 
 export class TaskDb {
   private dbPath: string;
@@ -70,6 +70,31 @@ export class TaskDb {
     this.writeQueue = this.writeQueue.then(async () => {
       await this.writeAll([]);
     });
+    return this.writeQueue;
+  }
+
+  /**
+   * Realiza un backup del contenido actual de tasks_db.json en backupPath
+   * y luego vacía tasks_db.json (atomicidad relativa garantizada por writeQueue).
+   * Si no se pasa backupPath, usa ./data/backup_db.json.
+   */
+  async backupAndClear(backupPath?: string): Promise<void> {
+    const backupResolved = path.resolve(backupPath ?? "./data/backup_db.json");
+
+    this.writeQueue = this.writeQueue.then(async () => {
+      // Leemos los registros existentes
+      const records = await this.readAll();
+
+      // Asegurarnos de que el directorio del backup existe
+      await fs.mkdir(path.dirname(backupResolved), { recursive: true });
+
+      // Escribir backup
+      await fs.writeFile(backupResolved, JSON.stringify(records, null, 2), "utf-8");
+
+      // Finalmente vaciar la DB
+      await this.writeAll([]);
+    });
+
     return this.writeQueue;
   }
 

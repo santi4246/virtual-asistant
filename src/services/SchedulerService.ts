@@ -2,6 +2,7 @@
 import { DbConnection } from "../db/DbConnection";
 import type { IExecutionStrategy } from "../strategies/IExecutionStrategy";
 import type { Task } from "../models/ITask";
+import { safeLog } from "../cli/logger";
 
 type RegistryEntry = {
   strategy: IExecutionStrategy;
@@ -44,10 +45,9 @@ export class SchedulerService {
   async cancel(taskId: string): Promise<boolean> {
     const entry = this.registry.get(taskId);
     if (!entry) return false;
-    try {
-      // Llamar a cancel sin argumentos (compatible con tu interfaz)
+    try {      
       entry.strategy.cancel?.();
-      
+
       // marcar en DB como cancelada
       const db = DbConnection.getInstance();
       await db.updateById(taskId, {
@@ -55,9 +55,10 @@ export class SchedulerService {
         result: { status: "cancelled", cancelledAt: new Date().toISOString() },
       });
       this.registry.delete(taskId);
+      safeLog(`[SchedulerService] Tarea ${taskId} cancelada correctamente.`);
       return true;
     } catch (err) {
-      console.error(`[SchedulerService] Error cancelando ${taskId}:`, err);
+      safeLog(`[SchedulerService] Error cancelando ${taskId}:`, err);
       return false;
     }
   }

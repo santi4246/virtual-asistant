@@ -5,7 +5,7 @@ import { ConditionalStrategy } from "../strategies/ConditionalStrategy";
 import type { Task } from "../models/ITask";
 import type { IExecutionStrategy } from "../strategies/IExecutionStrategy";
 
-type TaskType = "email" | "calendar" | "social";
+type TaskType = "email" | "calendar" | "social" | "clean";
 type StrategyType = "immediate" | "scheduled" | "conditional";
 
 export class TaskBuilder {

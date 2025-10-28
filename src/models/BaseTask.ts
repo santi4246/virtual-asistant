@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import type { Task, TaskPayload, TaskRecord, TaskResult, TaskType } from "../models/ITask";
 import { DbConnection } from "../db/DbConnection";
+import { safeLog } from "../cli/logger";
 
 export abstract class BaseTask implements Task {
   id: string;
@@ -51,9 +52,9 @@ export abstract class BaseTask implements Task {
 
       // Usar el método add que genera el ID automáticamente
       await db.add(record);
-      console.log(`[BaseTask] (${this.id}) Resultado persistido exitosamente`);
+      safeLog(`\n[BaseTask] (${this.id}) Resultado persistido exitosamente`);
     } catch (err) {
-      console.error(`[BaseTask] (${this.id}) Error al persistir resultado:`, err);
+      safeLog(`\n[BaseTask] (${this.id}) Error al persistir resultado:`, err);
     }
   }
 }

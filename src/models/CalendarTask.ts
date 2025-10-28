@@ -1,5 +1,6 @@
 import { BaseTask } from "./BaseTask";
 import type { TaskPayload } from "../models/ITask";
+import { safeLog } from "../cli/logger";
 
 export class CalendarTask extends BaseTask {
   constructor(payload: TaskPayload, priority?: number, id?: string, createdAt?: string) {
@@ -11,14 +12,14 @@ export class CalendarTask extends BaseTask {
     const dateStr = this.payload.date ?? "";
     const description = this.payload.message ?? this.payload.description ?? "<sin descripción>";
 
-    console.log(`[CalendarTask] (${this.id}) Creando recordatorio: ${title}`);
-    console.log(`[CalendarTask] Fecha (raw): ${dateStr}`);
-    console.log(`[CalendarTask] Descripción: ${description}`);
+    safeLog(`\n[CalendarTask] (${this.id}) Creando recordatorio: ${title}`);
+    safeLog(`[CalendarTask] Fecha (raw): ${dateStr}`);
+    safeLog(`[CalendarTask] Descripción: ${description}`);
 
     const scheduledDate = dateStr ? new Date(dateStr) : null;
     if (dateStr && (!scheduledDate || isNaN(scheduledDate.getTime()))) {
       const errMsg = `[CalendarTask] (${this.id}) Fecha inválida: ${dateStr}`;
-      console.error(errMsg);
+      safeLog(errMsg);
 
       const errorResult = {
         status: "error",
@@ -39,7 +40,7 @@ export class CalendarTask extends BaseTask {
       timestamp: new Date().toISOString(),
     };
 
-    console.log(`[CalendarTask] (${this.id}) Recordatorio simulado creado`, result);
+    safeLog(`\n[CalendarTask] (${this.id}) Recordatorio simulado creado`, result);
     await this.persistResult(result);
   }
 }

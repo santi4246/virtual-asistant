@@ -1,5 +1,6 @@
 import { BaseTask } from "./BaseTask";
 import type { TaskPayload } from "../models/ITask";
+import { safeLog } from "../cli/logger";
 
 export class SocialPostTask extends BaseTask {
   constructor(payload: TaskPayload, priority?: number, id?: string, createdAt?: string) {
@@ -27,9 +28,9 @@ export class SocialPostTask extends BaseTask {
       timestamp: new Date().toISOString()
     };
 
-    console.log(`[SocialPostTask] (${this.id}) Publicando en ${this.payload.platform}`);
-    console.log(`[SocialPostTask] (${this.id}) Contenido: ${this.payload.content}`);
-    console.log(`[SocialPostTask] (${this.id}) Post simulado publicado:`, result);
+    safeLog(`[SocialPostTask] (${this.id}) Publicando en ${this.payload.platform}`);
+    safeLog(`[SocialPostTask] (${this.id}) Contenido: ${this.payload.content}`);
+    safeLog(`[SocialPostTask] (${this.id}) Post simulado publicado:`, result);
 
     await this.persistResult(result);
   }

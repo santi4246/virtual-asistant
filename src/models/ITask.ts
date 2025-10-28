@@ -7,7 +7,7 @@ export interface Task {
   execute(): Promise<void>;
 }
 
-export type TaskType = "email" | "calendar" | "social" | "clean";
+export type TaskType = "email" | "calendar" | "social" | "clean" | "backup";
 
 export interface TaskPayload {
   [key: string]: any;

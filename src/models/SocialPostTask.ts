@@ -22,7 +22,7 @@ export class SocialPostTask extends BaseTask {
 
     // Simular publicación en red social
     const result = {
-      status: "simulated",
+      status: "completada",
       info: `Post simulado en ${this.payload.platform}: "${this.payload.content}"`,
       publishedAt: new Date().toISOString(),
       timestamp: new Date().toISOString()

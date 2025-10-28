@@ -4,6 +4,7 @@ import { safeLog } from "../cli/logger";
 
 /**
  * Reprograma todas las tareas con result.status === "scheduled"
+ * Si la fecha programada ya pasó y la tarea no está completada, se ejecuta inmediatamente.
  */
 export async function recoverScheduledTasks(): Promise<void> {
   // imports "lazy" para evitar import circular
@@ -13,8 +14,10 @@ export async function recoverScheduledTasks(): Promise<void> {
   const db = DbConnection.getInstance();
   const records = await db.getAll();
 
+  // Filtrar tareas scheduled que no estén completadas
   const scheduled = records.filter(
-    (r) => r.result?.status === "scheduled" && new Date(r.result.scheduledFor) > new Date()
+    (r) =>
+      r.result?.status === "scheduled"
   );
 
   for (const record of scheduled) {
@@ -27,12 +30,26 @@ export async function recoverScheduledTasks(): Promise<void> {
 
       const targetDate = new Date(scheduledFor);
       const task = TaskFactory.create(record.type as any, record.payload, {
-        priority: record.payload?.priority,
+        priority: record.payload?.priority, id: record.id
       });
       const strategy = new ScheduledStrategy(targetDate);
 
-      safeLog(`[Scheduler] Reprogramando (scheduled) tarea ${record.id} para ${targetDate.toISOString()}`);
-      await strategy.schedule(task);
+      if (targetDate <= new Date()) {
+        safeLog(`[Scheduler] Fecha pasada para tarea ${record.id}. Ejecutando inmediatamente.`);
+        await task.execute();
+        safeLog(`[Scheduler] Tarea ${record.id} ejecutada.`);
+
+        // Actualizar estado a success/completed en DB
+        await db.updateById(record.id, {
+          result: {
+            status: "completada",
+            completedAt: new Date().toISOString(),
+          },
+        });
+      } else {
+        safeLog(`[Scheduler] Reprogramando tarea ${record.id} para ${targetDate.toISOString()}`);
+        await strategy.schedule(task);
+      }
     } catch (err) {
       safeLog(`[Scheduler] Error al reprogramar tarea scheduled ${record.id}:`, err);
     }

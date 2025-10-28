@@ -3,7 +3,7 @@ import * as readline from "readline";
 import { initLogger } from "./logger";
 import { DbConnection } from "../db/DbConnection";
 import { SchedulerService } from "../services/SchedulerService";
-import { createTaskInteractive, createCleanTaskInteractive } from "./taskActions";
+import { createTaskInteractive, createCleanTaskInteractive, createInteractiveBackup } from "./taskActions";
 
 export let showMainMenu: (() => Promise<void>) | null = null;
 
@@ -76,6 +76,7 @@ function renderMenu() {
   console.log("3. Listar tareas activas en memoria");
   console.log("4. Cancelar tarea por id");
   console.log("5. Limpiar DB");
+  console.log("6. Programar Backup DB");
   console.log("0. Salir");
   
   rl.setPrompt("Seleccione una opción: ");
@@ -134,6 +135,10 @@ export async function startCli(): Promise<void> {
           await createCleanTaskInteractive(questionFn, () => isClosed, showMainMenu);
           break;
         }
+
+        case "6":
+          await createInteractiveBackup(questionFn, () => isClosed, showMainMenu);
+          break;
 
         case "0": {
           safeLog("Saliendo...");

@@ -34,7 +34,7 @@ export class CalendarTask extends BaseTask {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     const result = {
-      status: "simulated",
+      status: "completada",
       info: `Recordatorio creado: "${title}" programado para ${scheduledDate ? scheduledDate.toISOString() : "fecha no especificada"}`,
       scheduledFor: scheduledDate ? scheduledDate.toISOString() : null,
       timestamp: new Date().toISOString(),

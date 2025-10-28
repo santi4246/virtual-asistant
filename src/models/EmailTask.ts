@@ -19,7 +19,7 @@ export class EmailTask extends BaseTask {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     const result = {
-      status: "simulated",
+      status: "completada",
       info: `Email simuladamente enviado a ${recipient}`,
       timestamp: new Date().toISOString(),
     };

@@ -2,13 +2,15 @@ import { TaskFactory } from "../factories/TaskFactory";
 import { ImmediateStrategy } from "../strategies/ImmediateStrategy";
 import { ScheduledStrategy } from "../strategies/ScheduledStrategy";
 import { ConditionalStrategy } from "../strategies/ConditionalStrategy";
-import type { Task } from "../models/ITask";
 import type { IExecutionStrategy } from "../strategies/IExecutionStrategy";
+import { BaseTask } from "../models/BaseTask";
+import { randomUUID } from "crypto";
 
-type TaskType = "email" | "calendar" | "social" | "clean";
+type TaskType = "email" | "calendar" | "social" | "clean" | "backup";
 type StrategyType = "immediate" | "scheduled" | "conditional";
 
 export class TaskBuilder {
+  private id?: string;
   private type: TaskType | null = null;
   private payload: any = {};
   private strategyType: StrategyType | null = null;
@@ -17,6 +19,11 @@ export class TaskBuilder {
   private condition: "day" | "night" | (() => boolean) | null = null;
   private intervalMs?: number;
   private maxAttempts?: number;
+
+  setId(id: string): this {
+    this.id = id;
+    return this;
+  }
 
   setType(type: TaskType): TaskBuilder {
     this.type = type;
@@ -59,7 +66,7 @@ export class TaskBuilder {
   }
 
   // src/builders/TaskBuilder.ts (método build con validación)
-  async build(): Promise<{ task: Task; strategy: IExecutionStrategy | null }> {
+  async build(id?: string): Promise<{ task: BaseTask; strategy: IExecutionStrategy | null }> {
     if (!this.type) {
       throw new Error("Tipo de tarea es requerido");
     }
@@ -92,10 +99,24 @@ export class TaskBuilder {
       }
     }
 
+    if (this.type === "clean" && this.payload) {
+      if (!this.payload.date) {
+        throw new Error("La fecha es requerida para registrar el evento");
+      }
+    }
+
+    if (this.type === "backup" && this.payload) {
+      if (!this.payload.date) {
+        throw new Error("La fecha es requerida para registrar el evento");
+      }
+    }
+
+    const taskId = id ?? randomUUID();
+
     // Crear la tarea usando TaskFactory
     const task = TaskFactory.create(this.type, this.payload, {
-      priority: this.priority,
-    });
+      priority: this.priority, id: taskId
+    }) as BaseTask;
 
     // Determinar la estrategia
     let strategy: IExecutionStrategy | null = null;
@@ -131,8 +152,12 @@ export class TaskBuilder {
     return { task, strategy };
   }
 
-  async buildAndExecute(): Promise<void> {
-    const { task, strategy } = await this.build();
+  async buildAndExecute(id?: string): Promise<void> {
+    const { task, strategy } = await this.build(id);
+
+    if (strategy && this.strategyType === "scheduled") {
+      await task.persistScheduled();
+    }
 
     if (strategy) {
       await strategy.schedule(task);

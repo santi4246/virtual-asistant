@@ -92,7 +92,7 @@ export async function createTaskInteractive(
 
     const builder = new TaskBuilder().setType(type as any).setPayload(payload);
 
-    if (strategyType === "scheduled") {      
+    if (strategyType === "scheduled") {
       if (isReadlineClosed()) return;
 
       const date = await askScheduledDate(question, isReadlineClosed);
@@ -131,21 +131,13 @@ export async function createTaskInteractive(
     const priority = parseInt(priorityStr) || 0;
     builder.setPriority(priority);
 
-    const { task, strategy } = await builder.build();
+    await builder.buildAndExecute();
 
-    if (strategy) {
-      await strategy.schedule(task);
-      safeLog(`\n✅ Tarea ${task.id} programada con éxito`);
-      safeLog(`[Sistema] Puedes continuar usando el menú principal mientras se ejecutan tareas en segundo plano.\n`);
-    } else {
-      await task.execute();
-      safeLog(`✅ Tarea ${task.id} ejecutada inmediatamente\n`);
-    }
+    safeLog(`✅ Tarea creada y procesada con éxito\n`);
 
     if (showMainMenu && !isReadlineClosed()) {
       await showMainMenu();
     }
-
   } catch (error) {
     safeLog(`❌ Error creando tarea: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -231,5 +223,82 @@ export async function createCleanTaskInteractive(
 
   } catch (error) {
     safeLog(`❌ Error creando tarea de limpieza: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+export async function createInteractiveBackup(
+  question: QuestionFn,
+  isReadlineClosed: IsClosedFn,
+  showMainMenu: ShowMenuFn
+): Promise<void> {
+  try {
+    if (isReadlineClosed()) return;
+
+    safeLog("\n--- Crear Tarea: Backup de Base de Datos ---");
+
+    const strategyType = await question("Estrategia (immediate/scheduled/conditional): ");
+    if (isReadlineClosed()) return;
+
+    if (!["immediate", "scheduled", "conditional"].includes(strategyType)) {
+      safeLog("Estrategia no válida. Use: immediate, scheduled, o conditional");
+      return;
+    }
+
+    const builder = new TaskBuilder().setType("backup").setPayload({});
+
+    if (strategyType === "scheduled") {
+      const dateStr = await question("Fecha programada (YYYY-MM-DD HH:MM): ");
+      if (isReadlineClosed()) return;
+
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        safeLog("Fecha inválida");
+        return;
+      }
+      builder.setStrategy("scheduled").setScheduledDate(date);
+    } else if (strategyType === "conditional") {
+      const condition = await question("Condición (day/night): ");
+      if (isReadlineClosed()) return;
+
+      if (condition !== "day" && condition !== "night") {
+        safeLog("Condición no válida. Use: day o night");
+        return;
+      }
+      builder.setStrategy("conditional").setCondition(condition);
+
+      const intervalStr = await question("Intervalo de verificación (ms) [5000]: ");
+      if (isReadlineClosed()) return;
+      const interval = parseInt(intervalStr) || 5000;
+      builder.setInterval(interval);
+
+      const maxAttemptsStr = await question("Máximo de intentos [10]: ");
+      if (isReadlineClosed()) return;
+      const maxAttempts = parseInt(maxAttemptsStr) || 10;
+      builder.setMaxAttempts(maxAttempts);
+    } else {
+      builder.setStrategy("immediate");
+    }
+
+    const priorityStr = await question("Prioridad [0]: ");
+    if (isReadlineClosed()) return;
+    const priority = parseInt(priorityStr) || 0;
+    builder.setPriority(priority);
+
+    const { task, strategy } = await builder.build();
+
+    if (strategy) {
+      await strategy.schedule(task);
+      safeLog(`\n✅ Tarea ${task.id} programada con éxito`);
+      safeLog(`[Sistema] Puedes continuar usando el menú principal mientras se ejecutan tareas en segundo plano.\n`);
+    } else {
+      await task.execute();
+      safeLog(`✅ Tarea ${task.id} ejecutada inmediatamente\n`);
+    }
+
+    if (showMainMenu && !isReadlineClosed()) {
+      await showMainMenu();
+    }
+  } catch (error) {
+    safeLog(`❌ Error creando tarea de backup: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

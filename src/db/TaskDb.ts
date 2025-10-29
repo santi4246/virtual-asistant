@@ -3,8 +3,9 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { randomUUID } from "crypto";
 import type { TaskRecord } from "../models/ITask";
+import { ITaskStore } from "./ITaskStore";
 
-export class TaskDb {
+export class TaskDb implements ITaskStore {
   private dbPath: string;
   private writeQueue: Promise<void> = Promise.resolve();  
 
@@ -48,7 +49,7 @@ export class TaskDb {
     return this.readAll();
   }
 
-  async add(record: Omit<TaskRecord, "id" | "executedAt">): Promise<string> {
+  async add(record: TaskRecord | Omit<TaskRecord, "id" | "executedAt">): Promise<string> {
     const id = randomUUID();
     const newRecord: TaskRecord = {
       id,
@@ -104,8 +105,7 @@ export class TaskDb {
     this.writeQueue = this.writeQueue.then(async (): Promise<void> => {
       const records = await this.readAll();
       const idx = records.findIndex((r) => r.id === id);
-      if (idx === -1) {
-        // si no existe, insertamos un nuevo registro mínimo
+      if (idx === -1) {        
         const newRec: TaskRecord = {
           id,
           type: patch.type ?? "unknown",
@@ -130,7 +130,7 @@ export class TaskDb {
 
   // Buscar por id
   async findById(id: string): Promise<TaskRecord | undefined> {
-    const records = await this.readAll();
+    const records = await this.readAll();         
     return records.find((r) => r.id === id);
   }
 

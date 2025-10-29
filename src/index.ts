@@ -9,8 +9,12 @@ async function main() {
 
   // 1) Configurar URI (usa getManager para acceder a settings)
   const manager = DbConnection.getManager();
-  manager.setSetting("uri", process.env.DB_URI || "");  
-
+  manager.setSetting("dbName", process.env.DB_NAME || "");
+  manager.setSetting("collectionName", process.env.COLLECTION_NAME || "");
+  manager.setSetting("dbPath", process.env.DB_PATH || "");
+  manager.setSetting("mode", process.env.MODE || "");
+  manager.setSetting("uri", process.env.DB_URI || "");
+  
   // 2) Conectar DB (intenta nube, si falla usa JSON local)
   await DbConnection.getInstance(); // esto inicializa la DB
 

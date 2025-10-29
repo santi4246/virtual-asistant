@@ -92,7 +92,7 @@ showMainMenu = async () => {
  * Start CLI: usa rl.on('line') para procesar opciones.
  */
 export async function startCli(): Promise<void> {
-  const db = DbConnection.getInstance();
+  const db = await DbConnection.getInstance();
   const scheduler = SchedulerService.getInstance();
 
   // Handler de línea

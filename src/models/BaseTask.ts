@@ -42,7 +42,7 @@ export abstract class BaseTask implements Task {
   // src/models/BaseTask.ts (método persistResult corregido)
   protected async persistResult(result: TaskResult): Promise<void> {
   try {
-    const db = DbConnection.getInstance();
+    const db = await DbConnection.getInstance();
 
     const record: TaskRecord = {
       id: this.id,

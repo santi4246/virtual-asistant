@@ -19,7 +19,8 @@ export class TaskBuilder {
   private condition: "day" | "night" | (() => boolean) | null = null;
   private intervalMs?: number;
   private maxAttempts?: number;
-
+  
+  // Se utiliza este método para recuperar tareas existentes.
   setId(id: string): this {
     this.id = id;
     return this;
@@ -65,8 +66,8 @@ export class TaskBuilder {
     return this;
   }
 
-  // src/builders/TaskBuilder.ts (método build con validación)
-  async build(id?: string): Promise<{ task: BaseTask; strategy: IExecutionStrategy | null }> {
+  // src/builders/TaskBuilder.ts (método build con validación)  
+  async build(): Promise<{ task: BaseTask; strategy: IExecutionStrategy | null }> {
     if (!this.type) {
       throw new Error("Tipo de tarea es requerido");
     }
@@ -99,19 +100,7 @@ export class TaskBuilder {
       }
     }
 
-    if (this.type === "clean" && this.payload) {
-      if (!this.payload.date) {
-        throw new Error("La fecha es requerida para registrar el evento");
-      }
-    }
-
-    if (this.type === "backup" && this.payload) {
-      if (!this.payload.date) {
-        throw new Error("La fecha es requerida para registrar el evento");
-      }
-    }
-
-    const taskId = id ?? randomUUID();
+    const taskId = this.id ?? randomUUID();
 
     // Crear la tarea usando TaskFactory
     const task = TaskFactory.create(this.type, this.payload, {
@@ -152,8 +141,8 @@ export class TaskBuilder {
     return { task, strategy };
   }
 
-  async buildAndExecute(id?: string): Promise<void> {
-    const { task, strategy } = await this.build(id);
+  async buildAndExecute(): Promise<void> {
+    const { task, strategy } = await this.build();
 
     if (strategy && this.strategyType === "scheduled") {
       await task.persistScheduled();

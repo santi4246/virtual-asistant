@@ -11,7 +11,7 @@ export async function recoverScheduledTasks(): Promise<void> {
   const { TaskFactory } = await import("../factories/TaskFactory");
   const { ScheduledStrategy } = await import("../strategies/ScheduledStrategy");
 
-  const db = DbConnection.getInstance();
+  const db = await DbConnection.getInstance();
   const records = await db.getAll();
 
   // Filtrar tareas scheduled que no estén completadas
@@ -65,7 +65,7 @@ export async function recoverConditionalTasks(): Promise<void> {
   const { TaskFactory } = await import("../factories/TaskFactory");
   const { ConditionalStrategy } = await import("../strategies/ConditionalStrategy");
 
-  const db = DbConnection.getInstance();
+  const db = await DbConnection.getInstance();
   const records = await db.getAll();
 
   const waiting = records.filter((r) => r.result?.status === "waiting");

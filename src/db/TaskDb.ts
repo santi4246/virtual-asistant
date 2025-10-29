@@ -6,7 +6,7 @@ import type { TaskRecord } from "../models/ITask";
 
 export class TaskDb {
   private dbPath: string;
-  private writeQueue: Promise<void> = Promise.resolve();
+  private writeQueue: Promise<void> = Promise.resolve();  
 
   constructor(dbPath: string = "./data/tasks_db.json") {
     this.dbPath = path.resolve(dbPath);
@@ -43,7 +43,7 @@ export class TaskDb {
       throw err;
     }
   }
-
+  
   async getAll(): Promise<TaskRecord[]> {
     return this.readAll();
   }

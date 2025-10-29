@@ -49,7 +49,7 @@ export class SchedulerService {
       entry.strategy.cancel?.();
 
       // marcar en DB como cancelada
-      const db = DbConnection.getInstance();
+      const db = await DbConnection.getInstance();
       await db.updateById(taskId, {
         executedAt: "cancelled",
         result: { status: "cancelled", cancelledAt: new Date().toISOString() },

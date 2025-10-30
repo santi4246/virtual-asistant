@@ -1,304 +1,127 @@
-import { TaskBuilder } from "../builders/TaskBuilder";
-import { safeLog } from "../cli/logger";
+// src/cli/taskActions.ts
+import type readline from "readline";
+import type { TaskRequest } from "../core/types/facade";
+import { logger } from "./logger";
+import type { ExecutionStrategyConfig } from "../core/types/strategy";
 
-type QuestionFn = (q: string) => Promise<string>;
-type IsClosedFn = () => boolean;
-type ShowMenuFn = (() => Promise<void>) | null;
+// Función para preguntar usando readline.Interface directamente
+async function askQuestion(rl: readline.Interface, query: string): Promise<string> {
+  return new Promise((resolve) => rl.question(query, resolve));
+}
 
-async function askScheduledDate(question: QuestionFn, isReadlineClosed: IsClosedFn): Promise<Date | null> {
+// Función para pedir fecha programada en formato ISO
+export async function askScheduledDate(rl: readline.Interface): Promise<string | null> {
   while (true) {
-    const dateStr = await question("Fecha programada (YYYY-MM-DD HH:MM): ");
-    if (isReadlineClosed()) return null;
+    const input = await askQuestion(rl, "Ingrese fecha y hora programada (YYYY-MM-DD HH:mm) o vacío para cancelar: ");
+    if (!input.trim()) return null;
 
-    const date = new Date(dateStr);
-    if (!isNaN(date.getTime())) {
-      return date;
+    const iso = new Date(input).toISOString();
+    if (isNaN(Date.parse(iso))) {
+      logger.log("Fecha inválida, intente de nuevo.");
+      continue;
     }
-
-    console.log("Fecha inválida.");
-
-    const retry = await question("¿Querés reingresar la fecha? (s/n): ");
-    if (isReadlineClosed()) return null;
-
-    if (retry.toLowerCase() !== "s") {
-      return null;
-    }
+    return iso;
   }
 }
 
-/**
- * Crea una tarea interactiva (email/calendar/social).
- * Nota: no reimprime el menú al final — el caller (cli.ts) es el responsable de eso.
- */
-export async function createTaskInteractive(
-  question: QuestionFn,
-  isReadlineClosed: IsClosedFn,
-  showMainMenu: ShowMenuFn
-): Promise<void> {
-  try {
-    if (isReadlineClosed()) return;
+// Crear tarea limpia interactiva (ejemplo para CleanTask)
+export async function createCleanTaskInteractive(rl: readline.Interface): Promise<TaskRequest> {
+  const name = await askQuestion(rl, "Nombre de la tarea de limpieza: ");
+  const targetsRaw = await askQuestion(rl, "Rutas a limpiar (separadas por coma): ");
+  const mode = await askQuestion(rl, "Modo de limpieza (soft/hard): ");
 
-    safeLog("\n--- Crear Tarea ---");
+  const targets = targetsRaw.split(",").map((t) => t.trim()).filter(Boolean);
 
-    const type = await question("Tipo de tarea (email/calendar/social): ");
-    if (isReadlineClosed()) return;
+  const strategyType = await askQuestion(rl, "Estrategia (immediate/scheduled/conditional): ");
+  let strategyConfig: ExecutionStrategyConfig = { type: strategyType as any };
 
-    if (!["email", "calendar", "social"].includes(type)) {
-      safeLog("Tipo no válido. Use: email, calendar, o social");
-      return;
-    }
-
-    let payload: any = {};
-    switch (type) {
-      case "email":
-        payload = {
-          recipient: await question("Destinatario: "),
-          subject: await question("Asunto: "),
-          message: await question("Mensaje: "),
-        };
-        break;
-
-      case "calendar":
-        payload = {
-          title: await question("Título del evento: "),
-          date: await question("Fecha (YYYY-MM-DD): "),
-          description: await question("Descripción: "),
-        };
-        break;
-
-      case "social": {
-        const platform = await question("Plataforma (twitter/facebook/linkedin): ");
-        const content = await question("Contenido del post: ");
-
-        if (!content || content.trim().length === 0) {
-          safeLog("❌ Error: El contenido del post no puede estar vacío");
-          return;
-        }
-
-        payload = { platform, content };
-        break;
-      }
-    }
-
-    if (isReadlineClosed()) return;
-
-    const strategyType = await question("Estrategia (immediate/scheduled/conditional): ");
-    if (isReadlineClosed()) return;
-
-    if (!["immediate", "scheduled", "conditional"].includes(strategyType)) {
-      safeLog("Estrategia no válida. Use: immediate, scheduled, o conditional");
-      return;
-    }
-
-    const builder = new TaskBuilder().setType(type as any).setPayload(payload);
-
-    if (strategyType === "scheduled") {
-      if (isReadlineClosed()) return;
-
-      const date = await askScheduledDate(question, isReadlineClosed);
-
-      if (!date) {
-        console.log("Creación de tarea cancelada por fecha inválida.");
-        return;
-      }
-
-      builder.setStrategy("scheduled").setScheduledDate(date);
-    } else if (strategyType === "conditional") {
-      const condition = await question("Condición (day/night): ");
-      if (isReadlineClosed()) return;
-
-      if (condition !== "day" && condition !== "night") {
-        safeLog("Condición no válida. Use: day o night");
-        return;
-      }
-      builder.setStrategy("conditional").setCondition(condition);
-
-      const intervalStr = await question("Intervalo de verificación (ms) [5000]: ");
-      if (isReadlineClosed()) return;
-      const interval = parseInt(intervalStr) || 5000;
-      builder.setInterval(interval);
-
-      const maxAttemptsStr = await question("Máximo de intentos [10]: ");
-      if (isReadlineClosed()) return;
-      const maxAttempts = parseInt(maxAttemptsStr) || 10;
-      builder.setMaxAttempts(maxAttempts);
-    } else {
-      builder.setStrategy("immediate");
-    }
-
-    const priorityStr = await question("Prioridad [0]: ");
-    if (isReadlineClosed()) return;
-    const priority = parseInt(priorityStr) || 0;
-    builder.setPriority(priority);
-
-    await builder.buildAndExecute();
-
-    safeLog(`✅ Tarea creada y procesada con éxito\n`);
-
-    if (showMainMenu && !isReadlineClosed()) {
-      await showMainMenu();
-    }
-  } catch (error) {
-    safeLog(`❌ Error creando tarea: ${error instanceof Error ? error.message : String(error)}`);
+  if (strategyType === "scheduled") {
+    const dateISO = await askScheduledDate(rl);
+    if (!dateISO) throw new Error("Fecha programada requerida para estrategia scheduled");
+    strategyConfig = { type: "scheduled", targetDateISO: dateISO };
+  } else if (strategyType === "conditional") {
+    const condition = await askQuestion(rl, "Condición (day/night): ");
+    strategyConfig = { type: "conditional", condition };
   }
+
+  return {
+    source: {
+      kind: "builder",
+      data: {
+        name,
+        type: "clean",
+        payload: { targets, mode },
+        strategy: strategyConfig,
+      },
+    },
+    executeNow: true,
+  };
 }
 
-/**
- * Crea / programa la tarea de limpieza (clean).
- * Nota: no reimprime el menú al final — el caller (cli.ts) es el responsable de eso.
- */
-export async function createCleanTaskInteractive(
-  question: QuestionFn,
-  isReadlineClosed: IsClosedFn,
-  showMainMenu: ShowMenuFn
-): Promise<void> {
-  try {
-    if (isReadlineClosed()) return;
-
-    safeLog("\n--- Crear Tarea: Limpiar DB ---");
-
-    const mode = await question("¿Limpiar ahora o programar? (now/scheduled/conditional): ");
-    if (isReadlineClosed()) return;
-
-    if (!["now", "scheduled", "conditional"].includes(mode)) {
-      safeLog("Modo no válido. Use: now, scheduled o conditional");
-      return;
-    }
-
-    const builder = new TaskBuilder().setType("clean").setPayload({});
-
-    if (mode === "scheduled") {
-      if (isReadlineClosed()) return;
-
-      const date = await askScheduledDate(question, isReadlineClosed);
-
-      if (!date) {
-        console.log("Creación de tarea cancelada por fecha inválida.");
-        return;
-      }
-
-      builder.setStrategy("scheduled").setScheduledDate(date);
-    } else if (mode === "conditional") {
-      const condition = await question("Condición (day/night): ");
-      if (isReadlineClosed()) return;
-
-      if (condition !== "day" && condition !== "night") {
-        safeLog("Condición no válida. Use: day o night");
-        return;
-      }
-      builder.setStrategy("conditional").setCondition(condition);
-
-      const intervalStr = await question("Intervalo de verificación (ms) [5000]: ");
-      if (isReadlineClosed()) return;
-      const interval = parseInt(intervalStr) || 5000;
-      builder.setInterval(interval);
-
-      const maxAttemptsStr = await question("Máximo de intentos [10]: ");
-      if (isReadlineClosed()) return;
-      const maxAttempts = parseInt(maxAttemptsStr) || 10;
-      builder.setMaxAttempts(maxAttempts);
-    } else {
-      builder.setStrategy("immediate");
-    }
-
-    const priorityStr = await question("Prioridad [0]: ");
-    if (isReadlineClosed()) return;
-    const priority = parseInt(priorityStr) || 0;
-    builder.setPriority(priority);
-
-    const { task, strategy } = await builder.build();
-
-    if (strategy) {
-      await strategy.schedule(task);
-      safeLog(`\n✅ Tarea ${task.id} programada con éxito`);
-      safeLog(`[Sistema] Puedes continuar usando el menú principal mientras se ejecutan tareas en segundo plano.\n`);
-    } else {
-      await task.execute();
-      safeLog(`✅ Tarea ${task.id} ejecutada inmediatamente\n`);
-    }
-
-    if (showMainMenu && !isReadlineClosed()) {
-      await showMainMenu();
-    }
-
-  } catch (error) {
-    safeLog(`❌ Error creando tarea de limpieza: ${error instanceof Error ? error.message : String(error)}`);
+// Crear tarea genérica interactiva (ejemplo para builder)
+export async function createTaskInteractive(rl: readline.Interface): Promise<TaskRequest | null> {
+  const type = await askQuestion(rl, "Tipo de tarea (email/calendar/social/clean/backup): ");
+  if (!["email", "calendar", "social", "clean", "backup"].includes(type)) {
+    logger.log("Tipo inválido.");
+    return null;
   }
-}
+  const name = await askQuestion(rl, "Nombre de la tarea: ");
 
-export async function createInteractiveBackup(
-  question: QuestionFn,
-  isReadlineClosed: IsClosedFn,
-  showMainMenu: ShowMenuFn
-): Promise<void> {
-  try {
-    if (isReadlineClosed()) return;
+  // Para simplificar, payload vacío o básico según tipo
+  let payload: Record<string, any> = {};
 
-    safeLog("\n--- Crear Tarea: Backup de Base de Datos ---");
-
-    const strategyType = await question("Estrategia (immediate/scheduled/conditional): ");
-    if (isReadlineClosed()) return;
-
-    if (!["immediate", "scheduled", "conditional"].includes(strategyType)) {
-      safeLog("Estrategia no válida. Use: immediate, scheduled, o conditional");
-      return;
-    }
-
-    const builder = new TaskBuilder().setType("backup").setPayload({});
-
-    if (strategyType === "scheduled") {
-      const dateStr = await question("Fecha programada (YYYY-MM-DD HH:MM): ");
-      if (isReadlineClosed()) return;
-
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) {
-        safeLog("Fecha inválida");
-        return;
-      }
-      builder.setStrategy("scheduled").setScheduledDate(date);
-    } else if (strategyType === "conditional") {
-      const condition = await question("Condición (day/night): ");
-      if (isReadlineClosed()) return;
-
-      if (condition !== "day" && condition !== "night") {
-        safeLog("Condición no válida. Use: day o night");
-        return;
-      }
-      builder.setStrategy("conditional").setCondition(condition);
-
-      const intervalStr = await question("Intervalo de verificación (ms) [5000]: ");
-      if (isReadlineClosed()) return;
-      const interval = parseInt(intervalStr) || 5000;
-      builder.setInterval(interval);
-
-      const maxAttemptsStr = await question("Máximo de intentos [10]: ");
-      if (isReadlineClosed()) return;
-      const maxAttempts = parseInt(maxAttemptsStr) || 10;
-      builder.setMaxAttempts(maxAttempts);
-    } else {
-      builder.setStrategy("immediate");
-    }
-
-    const priorityStr = await question("Prioridad [0]: ");
-    if (isReadlineClosed()) return;
-    const priority = parseInt(priorityStr) || 0;
-    builder.setPriority(priority);
-
-    const { task, strategy } = await builder.build();
-
-    if (strategy) {
-      await strategy.schedule(task);
-      safeLog(`\n✅ Tarea ${task.id} programada con éxito`);
-      safeLog(`[Sistema] Puedes continuar usando el menú principal mientras se ejecutan tareas en segundo plano.\n`);
-    } else {
-      await task.execute();
-      safeLog(`✅ Tarea ${task.id} ejecutada inmediatamente\n`);
-    }
-
-    if (showMainMenu && !isReadlineClosed()) {
-      await showMainMenu();
-    }
-  } catch (error) {
-    safeLog(`❌ Error creando tarea de backup: ${error instanceof Error ? error.message : String(error)}`);
+  switch (type) {
+    case "email":
+      payload = {
+        to: [await askQuestion(rl, "Destinatario email: ")],
+        subject: await askQuestion(rl, "Asunto: "),
+        body: await askQuestion(rl, "Cuerpo: "),
+      };
+      break;
+    case "calendar":
+      payload = {
+        title: await askQuestion(rl, "Título: "),
+        whenISO: new Date(await askQuestion(rl, "Fecha y hora (YYYY-MM-DD HH:mm): ")).toISOString(),
+      };
+      break;
+    case "social":
+      payload = {
+        platform: await askQuestion(rl, "Plataforma (twitter/facebook/instagram): "),
+        message: await askQuestion(rl, "Mensaje: "),
+      };
+      break;
+    case "clean":
+      return createCleanTaskInteractive(rl);
+    case "backup":
+      payload = {
+        source: await askQuestion(rl, "Ruta origen: "),
+        destination: await askQuestion(rl, "Ruta destino: "),
+      };
+      break;
   }
+
+  const strategyType = await askQuestion(rl, "Estrategia (immediate/scheduled/conditional): ");
+  let strategyConfig: ExecutionStrategyConfig = { type: strategyType as any };
+
+  if (strategyType === "scheduled") {
+    const dateISO = await askScheduledDate(rl);
+    if (!dateISO) throw new Error("Fecha programada requerida para estrategia scheduled");
+    strategyConfig = { type: "scheduled", targetDateISO: dateISO };
+  } else if (strategyType === "conditional") {
+    const condition = await askQuestion(rl, "Condición (day/night): ");
+    strategyConfig = { type: "conditional", condition };
+  }
+
+  return {
+    source: {
+      kind: "builder",
+      data: {
+        name,
+        type: type as any,
+        payload,
+        strategy: strategyConfig,
+      },
+    },
+    executeNow: true,
+  };
 }

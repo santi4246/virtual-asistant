@@ -35,3 +35,9 @@ export function safeLog(...args: any[]) {
 
   // rl.prompt() // reimprime sólo el prompt; el menú completo lo imprime el loop principal cuando corresponda
 }
+
+export const logger = {
+  log: safeLog,
+  error: (...args: any[]) => console.error(...args),
+  // otros métodos si querés
+};

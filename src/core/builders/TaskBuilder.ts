@@ -3,7 +3,7 @@ import { ImmediateStrategy } from "../strategies/ImmediateStrategy";
 import { ScheduledStrategy } from "../strategies/ScheduledStrategy";
 import { ConditionalStrategy } from "../strategies/ConditionalStrategy";
 import type { IExecutionStrategy } from "../strategies/IExecutionStrategy";
-import { BaseTask } from "../models/BaseTask";
+import { BaseTask } from "../tasks/modules";
 import { randomUUID } from "crypto";
 
 type TaskType = "email" | "calendar" | "social" | "clean" | "backup";
@@ -19,7 +19,7 @@ export class TaskBuilder {
   private condition: "day" | "night" | (() => boolean) | null = null;
   private intervalMs?: number;
   private maxAttempts?: number;
-  
+
   // Se utiliza este método para recuperar tareas existentes.
   setId(id: string): this {
     this.id = id;
@@ -119,7 +119,7 @@ export class TaskBuilder {
         if (!this.scheduledDate) {
           throw new Error("Fecha programada es requerida para estrategia scheduled");
         }
-        strategy = new ScheduledStrategy(this.scheduledDate);
+        strategy = new ScheduledStrategy(this.scheduledDate.toISOString());
         break;
 
       case "conditional":
@@ -144,12 +144,8 @@ export class TaskBuilder {
   async buildAndExecute(): Promise<void> {
     const { task, strategy } = await this.build();
 
-    if (strategy && this.strategyType === "scheduled") {
-      await task.persistScheduled();
-    }
-
     if (strategy) {
-      await strategy.schedule(task);
+      await strategy.apply(task);
     } else {
       await task.execute();
     }

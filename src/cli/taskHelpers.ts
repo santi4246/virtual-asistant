@@ -1,7 +1,7 @@
 import readline from "readline";
 import { ExecutionStrategyConfig } from "../core/types/strategy";
 import { TaskLogEntry } from "../core/types/logger";
-import { colorizeAudit, colorizeStatus, highlightAuditPrefix } from "../ui/colors";
+import { colorizeAudit, colorizeStatus, highlightAuditPrefix } from "../utils/colors";
 import { TaskRequestBuilder } from "../core/builder/TaskRequestBuilder";
 import { TaskType } from "../core/types/tasks";
 import path from "path";

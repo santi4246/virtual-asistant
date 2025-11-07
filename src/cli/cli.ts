@@ -3,7 +3,7 @@ import type { ITaskRunnerFacade } from "../core/types/facade";
 import { logger, initLogger } from "./logger";
 import * as taskActions from "./taskActions";
 import { askQuestion } from "./taskHelpers";
-import { wireNotifications } from "../ui/WireNotifications";
+import { wireNotifications } from "../utils/WireNotifications";
 
 type UILogger = {
   log: (...args: any[]) => void;

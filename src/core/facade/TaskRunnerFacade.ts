@@ -6,7 +6,7 @@ import type { ITask, ITaskPrototype, TaskResult, TaskStatus, TaskType } from "..
 import { BackupTask, CalendarTask, CleanTask, EmailTask, SocialPostTask } from "../tasks/modules";
 import taskEvents from "../events/taskEvents";
 import path from "path";
-import { notificationBus } from "../../ui/NotificationBus";
+import { notificationBus } from "../../utils/NotificationBus";
 import { StrategySelector } from "../strategies/StrategySelector";
 
 export class TaskRunnerFacade implements ITaskRunnerFacade {

@@ -2,7 +2,7 @@ import readline from "readline";
 import type { ITaskRunnerFacade, TaskRequest } from "../core/types/facade";
 import type { ExecutionStrategyConfig, StrategyType } from "../core/types/strategy";
 import { askScheduledDate, createTaskInteractive, askQuestion, printHistory } from "./taskHelpers";
-import { colorizeStatus } from "../ui/colors";
+import { colorizeStatus } from "../utils/colors";
 import { TaskLogEntry } from "../core/types/logger";
 
 export type UILogger = {

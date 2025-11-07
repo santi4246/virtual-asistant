@@ -38,6 +38,5 @@ export function safeLog(...args: any[]) {
 
 export const logger = {
   log: safeLog,
-  error: (...args: any[]) => console.error(...args),
-  // otros métodos si querés
+  error: (...args: any[]) => console.error(...args),  
 };

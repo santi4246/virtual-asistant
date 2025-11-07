@@ -3,33 +3,10 @@ import { TaskLogger } from "../core/logger/TaskLogger";
 import { StrategySelector } from "../core/strategies/StrategySelector";
 import { TaskRunnerFacade } from "../core/facade/TaskRunnerFacade";
 import { CalendarTask, CleanTask, BackupTask, EmailTask, SocialPostTask, ReminderTask } from "../core/tasks/modules";
+import path from "path";
 
 export function bootstrapFacade() {
     const registry = new PrototypeRegistry();
-
-    registry.register(
-        "reminderBase",
-        new CalendarTask({
-            name: "Recordatorio base",
-            payload: { title: "Recordatorio", description: "Revisa tus tareas", whenISO: new Date(Date.now() + 10 * 60 * 1000).toISOString(), location: "Oficina" },
-        })
-    );
-
-    registry.register(
-        "limpiezaBasica",
-        new CleanTask({
-            name: "Limpieza básica",
-            payload: { targets: ["./temp", "./cache"], mode: "soft", notes: [] },
-        })
-    );
-
-    registry.register(
-        "backupSemanal",
-        new BackupTask({
-            name: "Backup semanal",
-            payload: { source: "/var/data", destination: "/var/backups" },
-        })
-    );
 
     registry.register(
         "emailBase",
@@ -64,6 +41,30 @@ export function bootstrapFacade() {
         new ReminderTask({
             name: "Recordatorio base",
             payload: { message: "Revisa tus tareas", whenISO: new Date(Date.now() + 10 * 60 * 1000).toISOString() },
+        })
+    );
+
+    registry.register(
+        "calendarBase",
+        new CalendarTask({
+            name: "Registro calendario base",
+            payload: { title: "Recordatorio Calendario", description: "Revise sus tareas", whenISO: new Date(Date.now() + 10 * 60 * 1000).toISOString(), location: "Oficina" },
+        })
+    );
+
+    registry.register(
+        "limpiezaBasica",
+        new CleanTask({
+            name: "Limpieza básica",
+            payload: { mode: "soft" },
+        })
+    );
+
+    registry.register(
+        "backupSemanal",
+        new BackupTask({
+            name: "Backup semanal",
+            payload: { destination: path.resolve(process.cwd(), "data", "backup_db.json") },
         })
     );
 

@@ -8,11 +8,15 @@ export interface TaskLogEntry {
   type: TaskType;
   strategy: StrategyType;
   status: TaskStatus;
-  message: string;  
+  message: string;
+  isAudit?: boolean;
 }
 
 export interface ITaskLogger {
   log(entry: TaskLogEntry): void;
   list(): TaskLogEntry[];
-  clear(): void;
+  clear(): void;  
+  replace(entries: TaskLogEntry[]): void;
+  purgeBefore(cutoffISO: string, options?: { keepFinals?: boolean }): void
+  addAuditEntry(params: { taskId?: string; taskName?: string; type: TaskType; strategy?: StrategyType; message: string; }): void;
 }

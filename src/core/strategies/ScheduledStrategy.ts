@@ -1,6 +1,5 @@
-import type { IExecutionStrategy } from "../types/strategy";
+import type { ExecutionStrategyConfig, IExecutionStrategy } from "../types/strategy";
 import type { ITask, TaskResult } from "../types/tasks";
-import { TaskLogger } from "../logger/TaskLogger";
 
 type TimerId = ReturnType<typeof setTimeout>;
 
@@ -8,50 +7,34 @@ export class ScheduledStrategy implements IExecutionStrategy {
   public readonly type = "scheduled" as const;
   private static timers = new Map<string, TimerId>();
 
-  constructor(private readonly targetDateISO: string) {
+  constructor(private readonly targetDateISO: string, private readonly onExecuted?: (taskId: string) => void) {
     if (!targetDateISO) throw new Error("ScheduledStrategy: targetDateISO requerido");
   }
 
   public async apply(task: ITask): Promise<TaskResult> {
-    const logger = TaskLogger.getInstance();
     const now = Date.now();
     const target = Date.parse(this.targetDateISO);
-    const delay = Math.max(0, target - now);    
-
-    logger.log({
-      timestampISO: new Date().toISOString(),
-      taskId: task.id,
-      taskName: task.name,
-      type: task.type,
-      strategy: this.type,
-      status: "scheduled",
-      message: `Tarea programada para ${this.targetDateISO}: ${task.name}`,
-    });
+    const delay = Math.max(0, target - now);
 
     const timer = setTimeout(async () => {
-      try {        
+      const targetDate = new Date(this.targetDateISO);
+      console.log(`\n\n⏰ Ejecutando tarea programada: "${task.name}" (programada para ${targetDate.toLocaleString()})\n`);
+
+      const strategyConfig: ExecutionStrategyConfig = {
+        type: "scheduled",
+        targetDateISO: this.targetDateISO,
+      };
+
+      try {
+        task.setStrategy(strategyConfig);
         await task.execute();
-        logger.log({
-          timestampISO: new Date().toISOString(),
-          taskId: task.id,
-          taskName: task.name,
-          type: task.type,
-          strategy: this.type,
-          status: "completed",
-          message: `Tarea completada (programado): ${task.name}`,
-        });
       } catch (err) {
-        logger.log({
-          timestampISO: new Date().toISOString(),
-          taskId: task.id,
-          taskName: task.name,
-          type: task.type,
-          strategy: this.type,
-          status: "failed",
-          message: `Tarea fallida (programado): ${task.name} - ${err instanceof Error ? err.message : String(err)}`,
-        });
+        console.error(`Error al ejecutar tarea programada "${task.name}": ${(err as Error).message}`);
       } finally {
         ScheduledStrategy.timers.delete(task.id);
+        if (this.onExecuted) {
+          this.onExecuted(task.id);
+        }
       }
     }, delay);
 
@@ -61,20 +44,14 @@ export class ScheduledStrategy implements IExecutionStrategy {
   }
 
   public async cancel(task: ITask): Promise<void> {
-    const t = ScheduledStrategy.timers.get(task.id);
-    if (t) {
-      clearTimeout(t);
+    const timer = ScheduledStrategy.timers.get(task.id);
+    if (timer) {
+      clearTimeout(timer);
       ScheduledStrategy.timers.delete(task.id);
-
-      TaskLogger.getInstance().log({
-        timestampISO: new Date().toISOString(),
-        taskId: task.id,
-        taskName: task.name,
-        type: task.type,
-        strategy: this.type,
-        status: "canceled",
-        message: `Tarea cancelada (programado): ${task.name}`,
-      });
+      console.log(`⏰ Tarea programada "${task.name}" cancelada.`);
+      if (this.onExecuted) {
+        this.onExecuted(task.id);
+      }
     }
   }
 }

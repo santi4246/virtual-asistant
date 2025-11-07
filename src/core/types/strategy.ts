@@ -4,8 +4,10 @@ export type StrategyType = "immediate" | "scheduled" | "conditional";
 
 export interface ExecutionStrategyConfig {
   type: StrategyType;  
-  targetDateISO?: string;  
+  targetDateISO?: string;
   condition?: "day" | "night" | string;
+  intervalMs?: number;
+  maxAttempts?: number;
 }
 
 export interface IExecutionStrategy {

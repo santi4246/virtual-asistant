@@ -4,7 +4,7 @@ import type { TaskPayload } from "../types/tasks";
 type CalendarPayload = TaskPayload & {
   title?: string;
   description?: string;
-  whenISO?: string;
+  date?: string;
   location?: string;
   createdAt?: string;
   eventId?: string;
@@ -28,28 +28,36 @@ export class CalendarTask extends BaseTask {
         whenISO:
           params?.payload?.whenISO ??
           new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-        location: params?.payload?.location ?? "",        
+        location: params?.payload?.location ?? "",
       },
     });
   }
 
   public async execute(): Promise<void> {
     const p = this.payload as CalendarPayload;
-    
-    if (!p.title || !p.title.trim()) {
-      throw new Error("CalendarTask: 'title' es requerido");
-    }
-    if (!isIsoDate(p.whenISO)) {
-      throw new Error("CalendarTask: 'whenISO' debe ser una fecha ISO válida");
-    }
-    
-    await new Promise((res) => setTimeout(res, 250));
+    this.setStatus("running", "Iniciando ejecución");
 
-    p.eventId = Math.random().toString(36).slice(2, 10);
-    p.createdAt = new Date().toISOString();
+    try {
+      if (!p.title || !p.title.trim()) {
+        throw new Error("CalendarTask: 'title' es requerido");
+      }
+      if (!isIsoDate(p.whenISO)) {
+        throw new Error("CalendarTask: 'whenISO' debe ser una fecha ISO válida");
+      }
+
+      await new Promise((res) => setTimeout(res, 250));
+
+      p.eventId = Math.random().toString(36).slice(2, 10);
+      p.createdAt = new Date().toISOString();
+
+      this.setStatus("completed", "Recordatorio creado correctamente");      
+    } catch (err: any) {
+      this.setStatus("failed", `Error: ${err?.message ?? String(err)}`);      
+      throw err;
+    }
   }
 
-  protected cloneAdjustments(): void {    
+  protected cloneAdjustments(): void {
     const p = this.payload as CalendarPayload;
     if (p.createdAt) delete p.createdAt;
     if (p.eventId) delete p.eventId;

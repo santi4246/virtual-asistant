@@ -1,10 +1,12 @@
+import { ExecutionStrategyConfig } from "./strategy";
+
 export type TaskType = "email" | "calendar" | "social" | "clean" | "backup";
 
 export interface TaskPayload {
   [key: string]: any;
 }
 
-export type TaskStatus = "waiting" | "scheduled" | "completed" | "failed" | "canceled";
+export type TaskStatus = "waiting" | "running" | "scheduled" | "completed" | "failed" | "canceled";
 
 export interface TaskResult {
   status: TaskStatus;
@@ -16,6 +18,8 @@ export interface ITask {
   name: string;
   type: TaskType;
   payload: TaskPayload;
+  setStrategy(strategy: ExecutionStrategyConfig): void;
+  getStrategy(): ExecutionStrategyConfig | undefined;
   execute(): Promise<void>;
 }
 

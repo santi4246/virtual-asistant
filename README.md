@@ -112,6 +112,7 @@ El sistema permite elegir entre diferentes estrategias de ejecución:
 Cada tarea clonada puede personalizar campos según su tipo (email, red social, limpieza, etc.).
 ```
 # 🧱 Funcionalidades implementadas| Característica | Descripción |
+```
 |----------------|-------------|
 | 🧩 **Prototype Pattern** | Registro y clonación de plantillas (PrototypeRegistry). Las tareas clonadas son independientes y personalizables. |
 | 🧠 **Facade Pattern** | `TaskRunnerFacade` centraliza la creación, ejecución, registro y notificaciones. |
@@ -121,6 +122,7 @@ Cada tarea clonada puede personalizar campos según su tipo (email, red social, 
 | 🕓 **Scheduled Tasks** | `ScheduledStrategy` mantiene un mapa interno de timers y callbacks, con notificación al ejecutar. |
 | 🔊 **Eventos y Notificaciones** | `taskEvents` y `notificationBus` permiten emisión de cambios en tiempo real en la consola (`wireNotifications`). |
 | 🧼 **CleanTask & BackupTask** | Permite depurar historial y generar snapshot del registro (`backup_db.json`). |
+```
 
 # 🧠 Sistema de eventos
 El CLI reacciona a cambios en tiempo real gracias a los eventos:

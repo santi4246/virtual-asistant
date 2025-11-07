@@ -14,6 +14,7 @@ La aplicación se basa en un conjunto de patrones de diseño de software (Factor
 - Diseño orientado a patrones: Factory, Builder, Strategy, Singleton
 
 # 🧩 Arquitectura general
+```
 src/
 ├── core/
 │   ├── types/                  # Definiciones de tipos e interfaces (ITask, ITaskLogger, Strategy, etc.)
@@ -47,6 +48,7 @@ src/
 │
 └── data/
     └── backup_db.json          # Archivo de backup generado automáticamente
+```
 
 # Características principales
 - Crear tareas: email, calendar, social
@@ -160,12 +162,14 @@ registry.register("myNewTemplate", new MyNewTaskPrototype());
 3. Agregar cases en handleCloneTemplate para permitir personalización interactiva.
 
 # 🧩 Troubleshooting
+```
 | Problema | Causa | Solución |
 |-----------|--------|-----------|
 | No aparecen tareas programadas en pendientes | Facade no registra `scheduledTasks` | Verificar persistencia y callback de evento |
 | Mensajes duplicados de notificación | Doble logging (Facade + wireNotifications) | Silenciar el evento "scheduled" en `wireNotifications` |
 | Error "targetDateISO undefined" | Estrategia `scheduled` creada sin fecha | Validar antes de construir `ScheduledStrategy` |
 | Archivo backup vacío | No existen tareas completadas | Ejecutar al menos una tarea "completed" antes del backup |
+```
 
 # 🧪 Ejemplo de flujo
 ```
